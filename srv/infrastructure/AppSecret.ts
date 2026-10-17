@@ -1,12 +1,11 @@
-import cds from '@sap/cds';
 import { createHash } from 'crypto';
 
 const LOCAL_SECRET = 'expense-manager-local-only';
 
 /**
  * Server-side secret used to sign the app tokens (and, later, to encrypt
- * stored settings). Comes from SETTINGS_SECRET, falling back to the XSUAA
- * client secret; a fixed value is only accepted outside Cloud Foundry.
+ * stored settings). Comes from SETTINGS_SECRET; a fixed value is only
+ * accepted outside Cloud Foundry.
  */
 export class AppSecret {
 
@@ -39,26 +38,7 @@ export class AppSecret {
     private static secret(): string | undefined {
 
         return process.env.SETTINGS_SECRET
-            || this.xsuaaClientSecret()
             || (process.env.VCAP_APPLICATION ? undefined : LOCAL_SECRET);
-
-    }
-
-
-    private static xsuaaClientSecret(): string | undefined {
-
-        try {
-
-            const services = JSON.parse(process.env.VCAP_SERVICES || '{}');
-            const fromVcap = services?.xsuaa?.[0]?.credentials?.clientsecret;
-
-            return fromVcap || (cds.env.requires as any)?.xsuaa?.credentials?.clientsecret;
-
-        } catch {
-
-            return undefined;
-
-        }
 
     }
 

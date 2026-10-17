@@ -3,8 +3,13 @@ set -euo pipefail
 
 source "$(dirname "$0")/cf-lib.sh"
 
-# Own login: SETTINGS_SECRET signs the app tokens (falls back to the XSUAA client
-# secret when absent) and ADMIN_EMAIL / ADMIN_PASSWORD create the first administrator.
+# Own login: SETTINGS_SECRET signs the app tokens and ADMIN_EMAIL / ADMIN_PASSWORD
+# create the first administrator.
+
+if [[ -z "${SETTINGS_SECRET:-}" ]]; then
+    echo "::error::Missing repository secret SETTINGS_SECRET (long random value that signs the login tokens)"
+    exit 1
+fi
 
 changed=false
 

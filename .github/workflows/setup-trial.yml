@@ -30,11 +30,10 @@ jobs:
     timeout-minutes: 60
 
     env:
-      CF_APP: ${{ vars.CF_APP || 'ExpenseManager-srv' }}
+      CF_APP: ${{ vars.CF_APP || 'ExpenseManagerApp-srv' }}
       HANA_INSTANCE: ${{ vars.HANA_INSTANCE }}
-      UI5_REPOSITORY: ${{ vars.UI5_REPOSITORY || 'DaviCastr/SAP-UI5-ExpenseManager' }}
-      UI5_PAGES_URL: ${{ vars.UI5_PAGES_URL || 'https://davicastr.github.io/SAP-UI5-ExpenseManager/' }}
-      GIT_AUTHOR_NAME: Davi Castro
+      UI5_REPOSITORY: ${{ vars.UI5_REPOSITORY || 'ExpenseManagerAPP/expensemanagerapp.github.io' }}
+            GIT_AUTHOR_NAME: Davi Castro
       GIT_AUTHOR_EMAIL: davifgeo@gmail.com
 
     steps:

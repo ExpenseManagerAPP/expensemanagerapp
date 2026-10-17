@@ -3,7 +3,7 @@ set -euo pipefail
 
 source "$(dirname "$0")/cf-lib.sh"
 
-MTA_NAME="ExpenseManager"
+MTA_NAME="ExpenseManagerApp"
 
 echo "Building the MTA archive"
 npm ci

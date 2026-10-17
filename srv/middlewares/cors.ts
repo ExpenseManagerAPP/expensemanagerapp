@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 
 const ALLOWED_ORIGINS: Record<string, 1> = {
-    'https://davicastr.github.io': 1
+    'https://expensemanagerapp.github.io': 1
 };
 
 const ALLOWED_METHODS =

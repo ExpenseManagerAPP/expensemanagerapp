@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 45
 
     env:
-      CF_APP: ${{ vars.CF_APP || 'ExpenseManager-srv' }}
+      CF_APP: ${{ vars.CF_APP || 'ExpenseManagerApp-srv' }}
       HANA_INSTANCE: ${{ vars.HANA_INSTANCE }}
 
     steps:

@@ -1,5 +1,5 @@
 {
-  "name": "ExpenseManager",
+  "name": "ExpenseManagerApp",
   "version": "1.0.0",
   "description": "Expense Manager",
   "dependencies": {
@@ -52,7 +52,7 @@
     "cds-watch": "cds watch --open",
     "watch-ExpenseManager": "cds watch --open ExpenseManager/webapp/index.html?sap-ui-xx-viewCache=false",
     "clean": "rimraf gen dist mta_archives MakeFile*",
-    "build": "mbt build --mtar ExpenseManager",
+    "build": "mbt build --mtar ExpenseManagerApp",
     "bd": "npm-run-all clean build"
   },
   "private": true,

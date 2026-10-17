@@ -1,7 +1,7 @@
 _schema-version: 3.3.0
-ID: ExpenseManager
+ID: ExpenseManagerApp
 version: 1.0.0
-description: "Expense Manager"
+description: "Expense Manager App"
 parameters:
   enable-parallel-deployments: true
 build-parameters:
@@ -13,7 +13,7 @@ build-parameters:
         - npx tsc server.ts --module node16 --moduleResolution node16 --esModuleInterop --skipLibCheck --target es2022 --outDir gen/srv
 modules:
 
-  - name: ExpenseManager-srv
+  - name: ExpenseManagerApp-srv
     type: nodejs
     path: gen/srv
     parameters:
@@ -23,109 +23,21 @@ modules:
       readiness-health-check-http-endpoint: /health
     build-parameters:
       builder: npm-ci
-    provides:
-      - name: srv-api # required by consumers of CAP services (e.g. approuter)
-        properties:
-          srv-url: ${default-url}
     requires:
-      - name: ExpenseManager-db
-      - name: ExpenseManager-uaa
+      - name: ExpenseManagerApp-db
 
-  - name: ExpenseManager-db-deployer
+  - name: ExpenseManagerApp-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: ExpenseManager-db
-
-  - name: ExpenseManager-destinations
-    type: com.sap.application.content
-    requires:
-      - name: ExpenseManager-uaa
-        parameters:
-          service-key:
-            name: ExpenseManager-uaa-key
-      - name: ExpenseManager-destination
-        parameters:
-          content-target: true
-      - name: srv-api
-    build-parameters:
-      no-source: true
-    parameters:
-      content:
-        instance:
-          existing_destinations_policy: update
-          destinations:
-            - Name: ExpenseManager-auth
-              Authentication: OAuth2UserTokenExchange
-              ServiceInstanceName: ExpenseManager-uaa
-              ServiceKeyName: ExpenseManager-uaa-key
-              sap.cloud.service: ExpenseManager
-        subaccount:
-          existing_destinations_policy: update
-          destinations:
-            - Authentication: OAuth2UserTokenExchange
-              Name: ExpenseManager-srv-api
-              TokenServiceInstanceName: ExpenseManager-uaa
-              TokenServiceKeyName: ExpenseManager-uaa-key
-              URL: ~{srv-api/srv-url}
-              HTML5.DynamicDestination: true
-              sap.cloud.service: ExpenseManager
+      - name: ExpenseManagerApp-db
 
 resources:
 
-  - name: ExpenseManager-db
+  - name: ExpenseManagerApp-db
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
       service-plan: hdi-shared
-
-  - name: ExpenseManager-uaa
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: xsuaa
-      service-plan: application
-      path: ./xs-security.json
-      config:
-        oauth2-configuration:
-          redirect-uris:
-            - https://*.hana.ondemand.com/**
-            - http://localhost:*/**
-            - https://davicastr.github.io/**
-          credential-types:
-            - binding-secret
-            - x509
-        xsappname: ExpenseManager-uaa-${space}
-        tenant-mode: dedicated
-
-  - name: ExpenseManager-destination
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: destination
-      service-plan: lite
-      config:
-        HTML5Runtime_enabled: true
-        init_data:
-          instance:
-            existing_destinations_policy: update
-            destinations:
-              - Name: ExpenseManager-srv-api
-                URL: ~{srv-api/srv-url}
-                Authentication: NoAuthentication
-                Type: HTTP
-                ProxyType: Internet
-                HTML5.ForwardAuthToken: true
-                HTML5.DynamicDestination: true
-              - Name: ui5
-                URL: https://ui5.sap.com
-                Authentication: NoAuthentication
-                Type: HTTP
-                ProxyType: Internet
-    requires:
-      - name: srv-api
-        group: destinations
-        properties:
-          name: srv-api # must be used in xs-app.json as well
-          url: ~{srv-url}
-          forwardAuthToken: true
