@@ -15,6 +15,7 @@ Usuários de teste (tabela `Users`, senha `123456`): `davi@teste.com` (admin), `
 |---|---|
 | `/service/ExpenseManager/` | Serviço OData V4 (exige login) |
 | `/auth/password`, `/auth/refresh`, `/auth/change-password`, `/auth/me` | Login, renovação do token, troca de senha e perfil |
+| `/auth/signup`, `/auth/confirm`, `/auth/forgot-password`, `/auth/reset-password` | Criar conta, confirmar o email e redefinir a senha |
 | `/health` | Health check padrão do CAP |
 | `/health/db` | Público; responde `UP` quando o banco está acessível e `503` quando o HANA está parado |
 
@@ -25,6 +26,7 @@ Usuários de teste (tabela `Users`, senha `123456`): `davi@teste.com` (admin), `
 | `SETTINGS_SECRET` | Obrigatória no BTP. Valor aleatório longo que assina os tokens de login |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Criam o primeiro administrador na subida (se ainda não existir) |
 | `AUTH_RATE_LIMIT` | Opcional. Tentativas de login por IP a cada 15 minutos (padrão 10) |
+| `APP_URL` | Opcional. Endereço do front usado nos links dos emails (padrão `https://expensemanagerapp.github.io/`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Servidor, porta (padrão 587), email e senha de app usados no envio de emails |
 
 ## Deploy no BTP Trial

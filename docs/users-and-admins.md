@@ -54,14 +54,20 @@ Detalhes que vale saber:
 - **Tirar o `ADMIN_EMAIL` não rebaixa ninguém.** O bootstrap só cria ou promove, nunca remove o papel.
 - **Trocar o `ADMIN_EMAIL` cria (ou promove) outro admin.** O anterior continua admin.
 - **Para ter vários admins**, promova os usuários pela tela de administração (etapa 3 do item 7). Até ela existir, o caminho é apontar o `ADMIN_EMAIL` para o usuário e rodar o passo de login do workflow, que reinicia o app.
-- **Esqueceu a senha do admin?**
-  - Outro admin poderá redefinir a senha pela tela de administração (etapa 3).
-  - O "esqueci a senha" por email chega na etapa 2.
-  - Sem outro admin, `ADMIN_PASSWORD` não ajuda, porque o usuário já tem senha. O caminho é apontar o `ADMIN_EMAIL` para um email novo, entrar com ele e redefinir a senha do antigo.
+- **Esqueceu a senha do admin?** Use "Esqueci minha senha" no login (precisa do servidor de email). Outro admin também poderá redefinir a senha pela tela de administração (etapa 3). Sem email e sem outro admin, `ADMIN_PASSWORD` não ajuda, porque o usuário já tem senha: aponte o `ADMIN_EMAIL` para um email novo, entre com ele e redefina a senha do antigo.
 
 ## Usuários dos dados existentes
 
-Se o banco já tiver dados (por exemplo, depois de restaurar um backup), o bootstrap cria um usuário para cada dono (`Persons.createdBy`) e para cada destinatário de compartilhamento (`Shares.User`) que ainda não exista na tabela. Esses usuários entram **sem senha**: não conseguem fazer login até um admin definir uma senha para eles (ou, quando existir, pelo "esqueci a senha").
+Se o banco já tiver dados (por exemplo, depois de restaurar um backup), o bootstrap cria um usuário para cada dono (`Persons.createdBy`) e para cada destinatário de compartilhamento (`Shares.User`) que ainda não exista na tabela. Esses usuários entram **sem senha**: não conseguem fazer login até criarem a senha por "Esqueci minha senha" (com servidor de email) ou até um admin definir uma senha para eles.
+
+## Contas criadas pela tela "Criar conta"
+
+Toda conta nova nasce com `Role = 'User'` e `Status = 'Pending'`:
+
+- **Com servidor de email**, o próprio usuário ativa a conta pelo link de confirmação.
+- **Sem servidor de email**, a conta espera a aprovação de um admin (tela de administração, etapa 3).
+
+Ninguém vira admin por cadastro; só por `ADMIN_EMAIL` ou por um admin.
 
 ## `SETTINGS_SECRET`
 

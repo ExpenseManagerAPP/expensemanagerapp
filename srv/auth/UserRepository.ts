@@ -12,6 +12,9 @@ export interface UserRecord {
     MustChangePassword: boolean;
     TokenVersion: number;
     LastLoginAt?: string | null;
+    ActionTokenHash?: string | null;
+    ActionTokenPurpose?: string | null;
+    ActionTokenExpires?: string | null;
 }
 
 /**
@@ -24,6 +27,15 @@ export class UserRepository {
     public static async findByEmail(email: string): Promise<UserRecord | null> {
 
         const user = await SELECT.one.from(this.entity()).where('tolower(Email) =', email.trim().toLowerCase());
+
+        return (user as UserRecord | undefined) ?? null;
+
+    }
+
+
+    public static async findByActionToken(tokenHash: string, purpose: string): Promise<UserRecord | null> {
+
+        const user = await SELECT.one.from(this.entity()).where({ ActionTokenHash: tokenHash, ActionTokenPurpose: purpose });
 
         return (user as UserRecord | undefined) ?? null;
 

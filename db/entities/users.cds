@@ -31,4 +31,9 @@ entity Users : cuid, managed {
     MustChangePassword : Boolean default false;
     TokenVersion       : Integer default 0;
     LastLoginAt        : Timestamp;
+    // One-time link sent by e-mail (account confirmation or password reset):
+    // only its SHA-256 hash is stored.
+    ActionTokenHash    : String(64);
+    ActionTokenPurpose : String(20);
+    ActionTokenExpires : Timestamp;
 }

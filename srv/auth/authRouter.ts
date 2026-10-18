@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import express from 'express';
 import cds from '@sap/cds';
 import { AuthError, AuthService } from './AuthService';
+import { AccountService } from './AccountService';
+import type { MailLanguage } from './AccountMails';
 import type { UserRecord } from './UserRepository';
 import { RateLimiter } from '../infrastructure/RateLimiter';
 import { AUTH_LIMITS } from '../constants/auth-limits';
@@ -17,7 +19,10 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
     account_pending: 'The account is waiting for confirmation',
     account_disabled: 'The account is disabled',
     invalid_token: 'The session expired, sign in again',
-    weak_password: `The password must have at least ${AUTH_LIMITS.minPasswordLength} characters`
+    weak_password: `The password must have at least ${AUTH_LIMITS.minPasswordLength} characters`,
+    invalid_email: 'Enter a valid e-mail',
+    invalid_name: 'Enter your name',
+    invalid_link: 'The link is invalid or expired'
 };
 
 authRouter.use(express.json());
@@ -142,6 +147,90 @@ authRouter.get('/me', async (req, res) => {
         res.json(AuthService.profile(user));
     } catch (error) {
         sendError(res, error, 'Profile lookup failed');
+    }
+});
+
+function language(value: unknown): MailLanguage {
+    return typeof value === 'string' && value.toLowerCase().startsWith('en') ? 'en' : 'pt';
+}
+
+/**
+ * Creates an account. The answer is the same whether or not the e-mail is
+ * already registered: "confirmation_sent" when a confirmation link goes out,
+ * "pending_approval" when an admin has to approve the account.
+ */
+authRouter.post('/signup', async (req, res) => {
+    const { email, name, password, lang } = (req.body || {}) as { email?: unknown; name?: unknown; password?: unknown; lang?: unknown };
+
+    if (!isValidCredential(email) || !isValidCredential(password) || typeof name !== 'string') {
+        res.status(400).json({ error: 'missing_credentials', error_description: 'Parameters "email", "name" and "password" are required' });
+        return;
+    }
+
+    if (tooManyAttempts(req, res)) {
+        return;
+    }
+
+    try {
+        res.status(202).json({ status: await AccountService.signUp(email, name, password, language(lang)) });
+    } catch (error) {
+        sendError(res, error, 'Sign-up failed');
+    }
+});
+
+authRouter.post('/confirm', async (req, res) => {
+    const { token } = (req.body || {}) as { token?: unknown };
+
+    if (tooManyAttempts(req, res)) {
+        return;
+    }
+
+    try {
+        res.json(await AccountService.confirm(typeof token === 'string' ? token : ''));
+    } catch (error) {
+        sendError(res, error, 'Account confirmation failed');
+    }
+});
+
+/**
+ * Always answers 202, so it cannot be used to find out registered e-mails.
+ */
+authRouter.post('/forgot-password', async (req, res) => {
+    const { email, lang } = (req.body || {}) as { email?: unknown; lang?: unknown };
+
+    if (!isValidCredential(email)) {
+        res.status(400).json({ error: 'missing_credentials', error_description: 'Parameter "email" is required' });
+        return;
+    }
+
+    if (tooManyAttempts(req, res)) {
+        return;
+    }
+
+    try {
+        await AccountService.forgotPassword(email, language(lang));
+        res.status(202).json({ status: 'accepted' });
+    } catch (error) {
+        sendError(res, error, 'Password reset request failed');
+    }
+});
+
+authRouter.post('/reset-password', async (req, res) => {
+    const { token, new_password } = (req.body || {}) as { token?: unknown; new_password?: unknown };
+
+    if (!isValidCredential(token) || !isValidCredential(new_password)) {
+        res.status(400).json({ error: 'missing_credentials', error_description: 'Parameters "token" and "new_password" are required' });
+        return;
+    }
+
+    if (tooManyAttempts(req, res)) {
+        return;
+    }
+
+    try {
+        res.json(await AccountService.resetPassword(token, new_password));
+    } catch (error) {
+        sendError(res, error, 'Password reset failed');
     }
 });
 

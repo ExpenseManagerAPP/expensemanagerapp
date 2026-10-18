@@ -5,8 +5,19 @@ export const AUTH_LIMITS = {
     minPasswordLength: 8,
     accessTokenSeconds: 60 * 60,
     refreshTokenSeconds: 30 * 24 * 60 * 60,
-    userCacheSeconds: 30
+    userCacheSeconds: 30,
+    confirmationLinkSeconds: 48 * 60 * 60,
+    resetLinkSeconds: 60 * 60,
+    maxNameLength: 100
 } as const;
+
+export const ACTION_TOKEN_PURPOSES = {
+    confirm: 'confirm',
+    reset: 'reset'
+} as const;
+
+/** Front-end address used in the links sent by e-mail (APP_URL overrides it). */
+export const DEFAULT_APP_URL = 'https://expensemanagerapp.github.io/';
 
 export const USER_ROLES = {
     user: 'User',

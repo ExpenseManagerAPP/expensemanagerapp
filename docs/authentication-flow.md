@@ -10,8 +10,21 @@ O app tem login próprio: os usuários ficam na tabela `Users` do CAP (não expo
 | `POST /auth/refresh` | `{ refresh_token }` | Tokens novos |
 | `POST /auth/change-password` | `{ current_password, new_password }` + `Authorization: Bearer` | Tokens novos (os anteriores deixam de valer) |
 | `GET /auth/me` | `Authorization: Bearer` | Perfil do usuário |
+| `POST /auth/signup` | `{ email, name, password, lang }` | `202 { status: "confirmation_sent" \| "pending_approval" }` |
+| `POST /auth/confirm` | `{ token }` | Tokens (a conta é ativada e o usuário já entra) |
+| `POST /auth/forgot-password` | `{ email, lang }` | Sempre `202` |
+| `POST /auth/reset-password` | `{ token, new_password }` | Tokens novos (os anteriores deixam de valer) |
 
-Erros: `401 invalid_credentials`, `401 invalid_token`, `403 account_pending`, `403 account_disabled`, `400 weak_password` (mínimo de 8 caracteres) e `429 too_many_attempts` (10 tentativas por IP a cada 15 minutos; `AUTH_RATE_LIMIT` muda o limite).
+Erros: `401 invalid_credentials`, `401 invalid_token`, `403 account_pending`, `403 account_disabled`, `400 weak_password` (mínimo de 8 caracteres), `400 invalid_email`, `400 invalid_name`, `400 invalid_link` e `429 too_many_attempts` (10 tentativas por IP a cada 15 minutos; `AUTH_RATE_LIMIT` muda o limite).
+
+## Criar conta, confirmar e redefinir a senha
+
+- **Criar conta:** com servidor de email (`SMTP_*`), a conta nasce `Pending` e recebe um link de confirmação válido por 48 horas (`#/confirm-email/{token}`). Sem servidor de email, a conta nasce `Pending` e espera a aprovação de um admin. Em desenvolvimento local, sem SMTP, o email é escrito no log do CAP.
+- **Mesma resposta para qualquer email:** cadastrar um email já existente responde igual a um cadastro novo. Se a conta estiver pendente, o link de confirmação é reenviado; se estiver ativa, o dono recebe um aviso de que alguém tentou cadastrar o email dele. Assim a tela não revela quem tem conta.
+- **Esqueci a senha:** sempre responde `202`. Só contas ativas recebem o link, que vale por 1 hora (`#/reset-password/{token}`). Isso também serve para os usuários criados sem senha a partir dos dados existentes.
+- **Links:** o token aleatório só existe no email; a tabela guarda o hash SHA-256 dele. Cada link é de uso único, e pedir um novo invalida o anterior. Redefinir a senha incrementa a versão do token, derrubando as sessões antigas.
+- **Endereço dos links:** `APP_URL` (padrão `https://expensemanagerapp.github.io/`).
+- Os emails têm parte HTML e texto, em português ou inglês conforme o idioma do navegador.
 
 ## Tokens
 
@@ -68,6 +81,8 @@ sequenceDiagram
 |---|---|
 | `srv/auth/authRouter.ts` | Rotas `/auth` e limite de tentativas |
 | `srv/auth/AuthService.ts` | Login, refresh, troca de senha e usuário do token |
+| `srv/auth/AccountService.ts` / `AccountMails.ts` | Criar conta, confirmação, esqueci a senha e os emails desses fluxos |
+| `srv/infrastructure/Mailer.ts` | Envio pelo SMTP das variáveis `SMTP_*` (no desenvolvimento, sem SMTP, escreve no log) |
 | `srv/auth/app-auth.ts` | Autenticação `custom` do CAP (`cds.requires.auth.impl`) |
 | `srv/auth/TokenService.ts` / `PasswordHasher.ts` | JWT HS256 e hash scrypt |
 | `srv/auth/UserBootstrap.ts` | Administrador inicial e usuários dos dados existentes |

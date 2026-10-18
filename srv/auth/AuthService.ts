@@ -9,7 +9,10 @@ export type AuthErrorCode =
     | 'account_pending'
     | 'account_disabled'
     | 'invalid_token'
-    | 'weak_password';
+    | 'weak_password'
+    | 'invalid_email'
+    | 'invalid_name'
+    | 'invalid_link';
 
 export class AuthError extends Error {
 
@@ -183,7 +186,7 @@ export class AuthService {
     }
 
 
-    private static issue(user: UserRecord): TokenResponse {
+    public static issue(user: UserRecord): TokenResponse {
 
         const version = user.TokenVersion || 0;
 
