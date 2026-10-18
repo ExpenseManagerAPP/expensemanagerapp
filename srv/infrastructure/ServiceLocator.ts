@@ -174,6 +174,7 @@ export class ServiceLocator {
                 _logoCache: null,
                 _smtpInstance: null,
                 _smtpSender: '',
+                _emailLogo: null,
                 _categoryImageCache: new Map<string, Buffer>()
             };
         }

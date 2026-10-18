@@ -5,7 +5,8 @@ import { AccountMails, type MailLanguage } from './AccountMails';
 import { PasswordHasher } from './PasswordHasher';
 import { UserRepository, type UserRecord } from './UserRepository';
 import { Mailer } from '../infrastructure/Mailer';
-import { ACTION_TOKEN_PURPOSES, AUTH_LIMITS, DEFAULT_APP_URL, USER_ROLES, USER_STATUSES } from '../constants/auth-limits';
+import { appUrl } from '../infrastructure/AppUrl';
+import { ACTION_TOKEN_PURPOSES, AUTH_LIMITS, USER_ROLES, USER_STATUSES } from '../constants/auth-limits';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,13 +20,6 @@ function hashToken(token: string): string {
 
 }
 
-function appUrl(): string {
-
-    const base = process.env.APP_URL || DEFAULT_APP_URL;
-
-    return base.endsWith('/') || base.endsWith('.html') ? base : `${base}/`;
-
-}
 
 /**
  * Self-service account flows: sign-up (confirmed by e-mail, or approved by an

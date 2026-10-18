@@ -137,6 +137,15 @@
                                 progresso de pagamento e últimas movimentações.
                             </p>
 
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top: 22px;">
+                                <tr>
+                                    <td bgcolor="#087c67" style="background-color: #087c67; border-radius: 10px;">
+                                        <a href="{{AppUrl}}" target="_blank"
+                                            style="display: inline-block; padding: 12px 22px; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none;">Abrir o Expense Manager</a>
+                                    </td>
+                                </tr>
+                            </table>
+
                             <p style="font-size: 13px; color: #687b7c; line-height: 20px;">
                                 Abraços,<br><strong style="color: #102a2b;">Equipe Expense Manager</strong>
                             </p>
@@ -150,7 +159,7 @@
                                 © {{CopyrightYear}} Expense Manager · Todos os direitos reservados
                             </div>
                             <div style="color: #687b7c; font-size: 11px; line-height: 17px; margin-top: 4px;">
-                                Esta é uma mensagem automática. Por favor, não responda.
+                                {{#if ReplyTo}}Dúvidas? Responda este email para falar com {{ReplyTo}}.{{else}}Esta é uma mensagem automática. Por favor, não responda.{{/if}}
                             </div>
                         </td>
                     </tr>

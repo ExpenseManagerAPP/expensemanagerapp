@@ -11,6 +11,13 @@ import { EntityRepository } from '@/repositories/entity';
 import { PermissionDenied } from "@/errors/permission-denied";
 import { EmailServers } from "@/infrastructure/EmailServers";
 import { Mailer } from "@/infrastructure/Mailer";
+import { ImageThumbnail } from "@/infrastructure/ImageThumbnail";
+import { HtmlText } from "@/infrastructure/HtmlText";
+import { appUrl } from "@/infrastructure/AppUrl";
+
+const EMAIL_LOGO_SIZE = 96;
+const EMAIL_PHOTO_SIZE = 176;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 import { ServiceLocator } from "@/infrastructure/ServiceLocator";
 import { InvoiceRepository } from "@/repositories/invoice";
 import { CardModel } from "@/models/card";
@@ -822,23 +829,39 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     });
                 }
 
+                // Small inline images keep the e-mail light: the logo as a
+                // compressed PNG and the photo as a JPEG thumbnail (2x the
+                // displayed size), instead of the original files.
+                cache._emailLogo ??= await ImageThumbnail.logo(cache._logoCache!, EMAIL_LOGO_SIZE);
+
                 attachments.push({
-                    filename: 'logo.png',
-                    content: cache._logoCache,
+                    filename: `logo.${cache._emailLogo?.extension ?? 'png'}`,
+                    content: cache._emailLogo?.content ?? cache._logoCache,
+                    contentType: cache._emailLogo?.contentType ?? 'image/png',
                     cid: 'Logo'
                 });
 
-                if (person.Image) {
+                const photo = person.Image
+                    ? await ImageThumbnail.photo(await this.readableToBuffer(person.Image) as Buffer, EMAIL_PHOTO_SIZE)
+                    : null;
 
-                    const img = await this.readableToBuffer(person.Image);
+                if (photo) {
 
                     attachments.push({
-                        filename: `person.${person.ImageType}`,
-                        content: img,
+                        filename: `person.${photo.extension}`,
+                        content: photo.content,
+                        contentType: photo.contentType,
                         cid: 'PersonImage'
                     });
 
                 }
+
+                // Replies go to whoever manages this person, when that is not
+                // the recipient (the sender address is not a real inbox).
+                const oOwner = String(person.CreatedBy || '');
+                const oReplyTo = EMAIL_PATTERN.test(oOwner) && oOwner.toLowerCase() !== String(person.Email || '').toLowerCase()
+                    ? oOwner
+                    : undefined;
 
                 const oIsPrediction = Boolean(Year || Month);
 
@@ -854,7 +877,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         String(person.Name || '').trim().split(/\s+/)[0],
                     CopyrightYear: this.getBrazilDate().year,
                     PeriodLabel: oPeriodLabel,
-                    HasPhoto: Boolean(person.Image),
+                    HasPhoto: Boolean(photo),
+                    AppUrl: appUrl(),
+                    ReplyTo: oReplyTo,
                     TotalWithSymbol:
                         this.pdfMoney(currency, totalAmount.toNumber()),
                     InvoiceCount: invoicesToSend.length,
@@ -892,11 +917,13 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                 await cache._smtpInstance.sendMail({
                     from: { name: 'Expense Manager', address: cache._smtpSender },
                     to: person.Email,
+                    replyTo: oReplyTo,
                     subject:
                         oIsPrediction
                             ? `Detalhamento do período · ${this.addLeftZeros(today.month)}/${today.year}`
                             : `Suas faturas · ${this.addLeftZeros(today.month)}/${today.year}`,
                     html,
+                    text: HtmlText.from(html),
                     attachments
                 });
 
