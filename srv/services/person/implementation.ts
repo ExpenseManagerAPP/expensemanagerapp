@@ -6,7 +6,7 @@ import { PersonModel } from "@/models/person";
 import { PersonRepository } from "@/repositories/person";
 import { BaseServiceImplementation } from "../base/implementation";
 import { ShareRepository } from "@/repositories/share";
-import { User } from "@sap/cds";
+import cds, { User } from "@sap/cds";
 import { EntityRepository } from '@/repositories/entity';
 import { PermissionDenied } from "@/errors/permission-denied";
 import { ServiceLocator } from "@/infrastructure/ServiceLocator";
@@ -4940,18 +4940,18 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
 
     /**
-     * Without a person the action e-mails every person of the app, so only an
-     * admin (or the scheduler, which runs as the privileged user) may call it.
-     * For one person the caller needs access to it (owner or share).
+     * Without a person the action e-mails every person of the app, so only the
+     * internal scheduler (privileged user) may call it. Through the API the
+     * person is mandatory and the caller needs access to it (owner or share).
      */
     private async canSendInvoices(user: User, personId?: string): Promise<Either<AbstractError, boolean>> {
 
-        if (personId) {
-            return this.checkPermissionByPersonId(user, personId, 1);
+        if (user instanceof (cds.User as any).Privileged) {
+            return right(true);
         }
 
-        if (user?.is?.('Admin')) {
-            return right(true);
+        if (personId) {
+            return this.checkPermissionByPersonId(user, personId, this.getPermissionForRead());
         }
 
         const message = this.getMessage('error.sendInvoicesAllPersons', ServiceLocator.getRequest()) || 'error.sendInvoicesAllPersons';
