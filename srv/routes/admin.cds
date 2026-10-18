@@ -25,6 +25,21 @@ service AdminService {
         end as HasPassword : Boolean
     };
 
+    type EmailServerInfo {
+        Host             : String;
+        Port             : Integer;
+        Username         : String;
+        Sender           : String;
+        Saved            : Boolean;
+        PasswordReadable : Boolean;
+        Source           : String;
+    }
+
+    function EmailServer()                                                                          returns EmailServerInfo;
+    action   SaveEmailServer(Host: String, Port: Integer, Username: String, Sender: String, Password: String);
+    action   RemoveEmailServer();
+    action   SendTestEmail(Recipient: String);
+
     action CreateUser(Email: String, Name: String, Password: String, Role: String);
     action ApproveUser(UserId: UUID);
     action SetUserStatus(UserId: UUID, Status: String);

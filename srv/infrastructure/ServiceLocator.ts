@@ -173,6 +173,7 @@ export class ServiceLocator {
                 _predictionTemplateCache: null,
                 _logoCache: null,
                 _smtpInstance: null,
+                _smtpSender: '',
                 _categoryImageCache: new Map<string, Buffer>()
             };
         }

@@ -17,11 +17,24 @@ export type AdminErrorCode =
     | 'weakPassword'
     | 'emailInUse'
     | 'notPending'
-    | 'ownAccount';
+    | 'ownAccount'
+    | 'invalidHost'
+    | 'invalidPort'
+    | 'invalidUsername'
+    | 'invalidSender'
+    | 'invalidPassword'
+    | 'passwordRequired'
+    | 'secretMissing'
+    | 'invalidRecipient'
+    | 'noEmailServer'
+    | 'testFailed';
 
 export class AdminError extends Error {
 
-    constructor(public readonly code: AdminErrorCode, public readonly status = 400) {
+    /**
+     * @param detail extra text for the message (e.g. the SMTP server's reason)
+     */
+    constructor(public readonly code: AdminErrorCode, public readonly status = 400, public readonly detail = '') {
 
         super(code);
 

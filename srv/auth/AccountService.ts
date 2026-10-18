@@ -41,7 +41,7 @@ export class AccountService {
 
         AuthService.assertStrong(password);
 
-        const delivers = Mailer.canDeliver();
+        const delivers = await Mailer.canDeliver();
         const status: SignUpStatus = delivers ? 'confirmation_sent' : 'pending_approval';
         const existing = await UserRepository.findByEmail(normalizedEmail);
 
@@ -96,7 +96,7 @@ export class AccountService {
 
         const user = EMAIL_PATTERN.test(email.trim()) ? await UserRepository.findByEmail(email) : null;
 
-        if (user?.Status === USER_STATUSES.active && Mailer.canDeliver()) {
+        if (user?.Status === USER_STATUSES.active && await Mailer.canDeliver()) {
             await this.sendLink(user, ACTION_TOKEN_PURPOSES.reset, language);
         }
 
@@ -133,7 +133,7 @@ export class AccountService {
      */
     private static async handleExistingSignUp(user: UserRecord, language: MailLanguage): Promise<void> {
 
-        if (!Mailer.canDeliver()) {
+        if (!(await Mailer.canDeliver())) {
             return;
         }
 

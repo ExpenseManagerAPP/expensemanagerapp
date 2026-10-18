@@ -85,6 +85,20 @@ Um admin não consegue desativar a própria conta nem mudar o próprio papel, en
 
 O serviço é `/service/Admin/` (`srv/routes/admin.cds`), com a entidade `Users` só de leitura e as ações `CreateUser`, `ApproveUser`, `SetUserStatus`, `SetUserRole` e `ResetUserPassword`. As regras ficam em `srv/auth/UserAdministration.ts`.
 
+## Servidor de email
+
+Na aba "Servidor de email" da administração o admin configura o SMTP usado nas faturas, na confirmação de cadastro e no "esqueci a senha":
+
+- **Origem:**
+  - servidor salvo na tela (`SETTINGS`);
+  - se não houver, as variáveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASSWORD` (`ENVIRONMENT`);
+  - sem nenhum dos dois, `NONE`: os cadastros ficam pendentes e nada é enviado.
+- **Senha:** fica cifrada (AES-256-GCM, chave derivada do `SETTINGS_SECRET`) na entidade `EmailServers`, que não é exposta em nenhum serviço, e nunca volta para a tela. Salvar com a senha em branco mantém a senha atual. Se o `SETTINGS_SECRET` mudar, ou se a configuração vier de um backup de outro ambiente, a tela avisa que a senha não pode ser lida e pede para informá-la de novo.
+- **Remetente:** opcional; sem ele, o email sai com o usuário do SMTP.
+- **Email de teste:** envia pelo servidor em uso. Se o servidor recusar, a mensagem mostra o motivo.
+- **Remover:** volta a usar as variáveis de ambiente, se existirem.
+- **Backup:** o backup exportado por um admin leva a configuração (com a senha ainda cifrada). Ela só é restaurada se quem importa for admin e ainda não houver servidor salvo.
+
 ## Outras regras de acesso
 
 - **Envio de faturas (`SendInvoices`):** sem `PersonId` o envio vai para todas as pessoas do app, então só o agendador interno (usuário privilegiado) pode fazer isso; pela API, inclusive para admins, a pessoa é obrigatória e é preciso ter acesso a ela (dono ou compartilhamento).

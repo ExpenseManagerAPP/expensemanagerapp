@@ -1,4 +1,5 @@
 import cds, { User } from '@sap/cds';
+import { EmailServers } from '@/infrastructure/EmailServers';
 import { AbstractError } from '@/errors';
 import { Backup, Card, Category, Entity, Invoice, Liability, LiabilityTransaction, Person, Share, Transaction } from '@models/apps/dflc/expensemanager/entities';
 import { Either, left, right } from '@sweet-monads/either';
@@ -26,6 +27,8 @@ import { LiabilityServiceImplementation } from '../liability/implementation';
 import { LiabilityTransactionServiceImplementation } from '../liability-transaction/implementation';
 
 const DEFAULT_CURRENCY = 'BRL';
+
+const EMAIL_SERVER_COLUMNS = ['Host', 'Port', 'Username', 'Sender', 'Password'];
 
 export class BackupServiceImplementation extends BaseServiceImplementation<Backup> implements BackupService {
 
@@ -102,6 +105,8 @@ export class BackupServiceImplementation extends BaseServiceImplementation<Backu
         const user = ServiceLocator.getRequest()?.user;
 
         try {
+
+            const emailServer = user?.is?.('Admin') ? await EmailServers.row() : null;
 
             const personService = ServiceRegistry.get('Persons') as PersonServiceImplementation;
 
@@ -302,6 +307,13 @@ export class BackupServiceImplementation extends BaseServiceImplementation<Backu
                     }
                 }
 
+                // Admin backups carry the e-mail server too (password still encrypted).
+                if (emailServer) {
+                    const emailSheet = workbook.addWorksheet('EmailServers');
+                    emailSheet.columns = EMAIL_SERVER_COLUMNS.map((key) => ({ header: key, key })) as any;
+                    emailSheet.addRow(emailServer);
+                }
+
                 const excelBuffer = await workbook.xlsx.writeBuffer() as any;
                 personZip.addFile(`Dados_${person.Id}.xlsx`, excelBuffer);
 
@@ -397,6 +409,8 @@ export class BackupServiceImplementation extends BaseServiceImplementation<Backu
 
             }
 
+            await this.importEmailServer(workbook);
+
             return right(true);
 
         } catch (error) {
@@ -441,6 +455,31 @@ export class BackupServiceImplementation extends BaseServiceImplementation<Backu
         await workbook.xlsx.load(excelFile as any);
 
         return right({ workbook, binaryFiles });
+
+    }
+
+
+    /**
+     * Restores the e-mail server of an admin backup, only for an admin and
+     * only when none is saved yet. The password stays as exported (encrypted):
+     * with another SETTINGS_SECRET it cannot be read and must be typed again.
+     */
+    private async importEmailServer(workbook: excel.Workbook): Promise<void> {
+
+        const sheet = this.getWorksheet(workbook, 'EmailServers');
+        const row = sheet ? this.extractRows(sheet)[0] : undefined;
+
+        if (!row?.Host || !ServiceLocator.getRequest()?.user?.is?.('Admin') || await EmailServers.row()) {
+            return;
+        }
+
+        await EmailServers.store({
+            Host: row.Host,
+            Port: Number(row.Port) || null,
+            Username: row.Username,
+            Sender: row.Sender || null,
+            Password: row.Password
+        });
 
     }
 

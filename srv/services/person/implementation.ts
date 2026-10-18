@@ -9,6 +9,8 @@ import { ShareRepository } from "@/repositories/share";
 import cds, { User } from "@sap/cds";
 import { EntityRepository } from '@/repositories/entity';
 import { PermissionDenied } from "@/errors/permission-denied";
+import { EmailServers } from "@/infrastructure/EmailServers";
+import { Mailer } from "@/infrastructure/Mailer";
 import { ServiceLocator } from "@/infrastructure/ServiceLocator";
 import { InvoiceRepository } from "@/repositories/invoice";
 import { CardModel } from "@/models/card";
@@ -421,7 +423,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                 return allowed;
             }
 
-            this.validateEmailConfiguration(request);
+            await this.validateEmailConfiguration(request);
 
             const today = this.getBrazilDate();
 
@@ -888,7 +890,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                 });
 
                 await cache._smtpInstance.sendMail({
-                    from: `"Expense Manager" <${process.env.SMTP_USER}>`,
+                    from: { name: 'Expense Manager', address: cache._smtpSender },
                     to: person.Email,
                     subject:
                         oIsPrediction
@@ -4982,11 +4984,13 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
     }
 
 
-    private validateEmailConfiguration(request: any): void {
+    /**
+     * The invoices go through the active e-mail server: the one saved on the
+     * admin page or, as a fallback, the SMTP_* variables.
+     */
+    private async validateEmailConfiguration(request: any): Promise<void> {
 
-        if (!process.env.SMTP_USER ||
-            !process.env.SMTP_HOST ||
-            !process.env.SMTP_PASSWORD) {
+        if (!(await EmailServers.active())) {
 
             throw new Error(
                 this.getMessage(
@@ -5036,18 +5040,14 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
         if (!cache._smtpInstance) {
 
-            const port = Number(process.env.SMTP_PORT || 587);
+            const server = await EmailServers.active();
 
-            cache._smtpInstance =
-                nodemailer.createTransport({
-                    host: process.env.SMTP_HOST,
-                    port,
-                    secure: port === 465,
-                    auth: {
-                        user: process.env.SMTP_USER,
-                        pass: process.env.SMTP_PASSWORD
-                    }
-                });
+            if (!server) {
+                throw new Error('No e-mail server configured');
+            }
+
+            cache._smtpInstance = Mailer.transporter(server);
+            cache._smtpSender = server.sender;
 
             await cache._smtpInstance.verify();
         }
