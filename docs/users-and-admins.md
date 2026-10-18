@@ -87,9 +87,11 @@ O serviço é `/service/Admin/` (`srv/routes/admin.cds`), com a entidade `Users`
 
 ## Outras regras de acesso
 
-- **Envio de faturas (`SendInvoices`):** sem `PersonId` o envio vai para todas as pessoas do app, então só admins (e o agendador, que roda como usuário privilegiado) podem chamar. Com `PersonId`, é preciso ter acesso à pessoa (dono ou compartilhamento).
+- **Envio de faturas (`SendInvoices`):** sem `PersonId` o envio vai para todas as pessoas do app, então só o agendador interno (usuário privilegiado) pode fazer isso; pela API, inclusive para admins, a pessoa é obrigatória e é preciso ter acesso a ela (dono ou compartilhamento).
+- **Compartilhamento por entidade:** quem recebe um share só lê ou altera as entidades liberadas nele, com a permissão exigida também na leitura. O filtro vale para leituras diretas, navegações, `$expand` (inclusive to-one) e para o serviço de pessoas; os totais da pessoa só somam as dívidas que o usuário pode ver. Ao editar, o item continua preso à pessoa original (não dá para movê-lo para outra pessoa).
+- **Backups:** cada usuário só vê os próprios backups.
 - **Compartilhamento:** só com usuários cadastrados. O email é gravado como está na tabela `Users`, porque é comparado com o usuário logado.
-- **Importar backup:** as pessoas restauradas passam a pertencer a quem importa (o `createdBy` do arquivo é ignorado). Pessoas cujo ID já existe no banco não são alteradas.
+- **Importar backup:** as pessoas restauradas passam a pertencer a quem importa (o `createdBy` do arquivo é ignorado). Os demais registros só entram se quem importa tiver permissão de escrita na pessoa dona deles, então um arquivo forjado não consegue criar compartilhamentos para pessoas de outros usuários. Registros cujo ID já existe não são alterados.
 
 ## `SETTINGS_SECRET`
 
