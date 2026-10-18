@@ -33,6 +33,15 @@ export class UserRepository {
     }
 
 
+    public static async findById(id: string): Promise<UserRecord | null> {
+
+        const user = await SELECT.one.from(this.entity()).where({ ID: id });
+
+        return (user as UserRecord | undefined) ?? null;
+
+    }
+
+
     public static async findByActionToken(tokenHash: string, purpose: string): Promise<UserRecord | null> {
 
         const user = await SELECT.one.from(this.entity()).where({ ActionTokenHash: tokenHash, ActionTokenPurpose: purpose });

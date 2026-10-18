@@ -25,7 +25,7 @@ A cada requisição:
    - id = `Email`;
    - papel `ExpenseManagerUser`, exigido por todos os serviços;
    - papel `Admin` também, se `Role = 'Admin'`.
-4. As ações só de administrador (tela de administração, etapa 3 do item 7) exigem `@requires: 'Admin'`, então o CAP recusa quem não tem esse papel.
+4. O serviço de administração (`/service/Admin/`) exige `@requires: 'Admin'`, então o CAP recusa quem não tem esse papel.
 
 Quem está com troca de senha pendente não recebe papel nenhum: só consegue chamar as rotas `/auth`, até trocar a senha.
 
@@ -53,8 +53,8 @@ Detalhes que vale saber:
 
 - **Tirar o `ADMIN_EMAIL` não rebaixa ninguém.** O bootstrap só cria ou promove, nunca remove o papel.
 - **Trocar o `ADMIN_EMAIL` cria (ou promove) outro admin.** O anterior continua admin.
-- **Para ter vários admins**, promova os usuários pela tela de administração (etapa 3 do item 7). Até ela existir, o caminho é apontar o `ADMIN_EMAIL` para o usuário e rodar o passo de login do workflow, que reinicia o app.
-- **Esqueceu a senha do admin?** Use "Esqueci minha senha" no login (precisa do servidor de email). Outro admin também poderá redefinir a senha pela tela de administração (etapa 3). Sem email e sem outro admin, `ADMIN_PASSWORD` não ajuda, porque o usuário já tem senha: aponte o `ADMIN_EMAIL` para um email novo, entre com ele e redefina a senha do antigo.
+- **Para ter vários admins**, use "Tornar administrador" na tela de administração.
+- **Esqueceu a senha do admin?** Use "Esqueci minha senha" no login (precisa do servidor de email). Outro admin também pode definir uma senha temporária pela tela de administração. Sem email e sem outro admin, `ADMIN_PASSWORD` não ajuda, porque o usuário já tem senha: aponte o `ADMIN_EMAIL` para um email novo, entre com ele e redefina a senha do antigo.
 
 ## Usuários dos dados existentes
 
@@ -65,9 +65,31 @@ Se o banco já tiver dados (por exemplo, depois de restaurar um backup), o boots
 Toda conta nova nasce com `Role = 'User'` e `Status = 'Pending'`:
 
 - **Com servidor de email**, o próprio usuário ativa a conta pelo link de confirmação.
-- **Sem servidor de email**, a conta espera a aprovação de um admin (tela de administração, etapa 3).
+- **Sem servidor de email**, a conta espera a aprovação de um admin (botão "Aprovar" na tela de administração).
 
 Ninguém vira admin por cadastro; só por `ADMIN_EMAIL` ou por um admin.
+
+## Tela de administração
+
+Os admins veem o botão de administração (ícone de chave) no cabeçalho do app, que abre `#/admin`. Quem não é admin não vê o botão e, se abrir o endereço, volta para o início.
+
+| Ação | O que faz |
+|---|---|
+| Aprovar | Ativa uma conta `Pending` (cadastro sem servidor de email) |
+| Desativar / Ativar | Desativar encerra as sessões abertas e bloqueia o login; ativar libera de novo |
+| Tornar administrador / Remover administrador | Muda o `Role` |
+| Definir senha temporária | Troca a senha, encerra as sessões e obriga a criar uma nova senha no próximo login |
+| Novo usuário | Cria uma conta ativa com senha temporária (troca obrigatória no primeiro login) |
+
+Um admin não consegue desativar a própria conta nem mudar o próprio papel, então sempre sobra pelo menos um admin ativo. A lista nunca mostra hash de senha nem tokens; só indica se o usuário ainda não tem senha ou está com troca pendente.
+
+O serviço é `/service/Admin/` (`srv/routes/admin.cds`), com a entidade `Users` só de leitura e as ações `CreateUser`, `ApproveUser`, `SetUserStatus`, `SetUserRole` e `ResetUserPassword`. As regras ficam em `srv/auth/UserAdministration.ts`.
+
+## Outras regras de acesso
+
+- **Envio de faturas (`SendInvoices`):** sem `PersonId` o envio vai para todas as pessoas do app, então só admins (e o agendador, que roda como usuário privilegiado) podem chamar. Com `PersonId`, é preciso ter acesso à pessoa (dono ou compartilhamento).
+- **Compartilhamento:** só com usuários cadastrados. O email é gravado como está na tabela `Users`, porque é comparado com o usuário logado.
+- **Importar backup:** as pessoas restauradas passam a pertencer a quem importa (o `createdBy` do arquivo é ignorado). Pessoas cujo ID já existe no banco não são alteradas.
 
 ## `SETTINGS_SECRET`
 

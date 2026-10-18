@@ -325,13 +325,14 @@ export abstract class BaseServiceImplementation<Entity> implements BaseService<E
 
                             if (oEntities) {
 
+                                // Any share of the user that grants the permission is enough.
                                 if (Permision > 1) {
 
-                                    oPermissionByShare = oEntities.filter((oEntity: EntityModel) => oEntity.Entity == this.entityCode() && oEntity.Permission >= Permision).length > 0;
+                                    oPermissionByShare = oPermissionByShare || oEntities.some((oEntity: EntityModel) => oEntity.Entity == this.entityCode() && oEntity.Permission >= Permision);
 
                                 } else {
 
-                                    oPermissionByShare = oEntities.filter((oEntity: EntityModel) => oEntity.Entity == this.entityCode()).length > 0;
+                                    oPermissionByShare = oPermissionByShare || oEntities.some((oEntity: EntityModel) => oEntity.Entity == this.entityCode());
 
                                 }
 

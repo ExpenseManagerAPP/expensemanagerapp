@@ -10,6 +10,7 @@ import { TransactionRepository } from '@/repositories/transaction';
 import { PersonRepository } from '@/repositories/person';
 import { EntityRepository } from '@/repositories/entity';
 import { DuplicityError } from '@/errors/duplicity';
+import { UserRepository } from '@/auth/UserRepository';
 import { ServiceLocator } from '@/infrastructure/ServiceLocator';
 
 export class ShareServiceImplementation extends BaseServiceImplementation<Share> implements ShareService {
@@ -38,6 +39,12 @@ export class ShareServiceImplementation extends BaseServiceImplementation<Share>
             return result;
         }
 
+        const recipient = await this.resolveRecipient(Entity);
+
+        if (recipient.isLeft()) {
+            return recipient;
+        }
+
         return this.checkDuplicityByUser(Entity);
 
     }
@@ -51,6 +58,12 @@ export class ShareServiceImplementation extends BaseServiceImplementation<Share>
             return result;
         }
 
+        const recipient = await this.resolveRecipient(Entity);
+
+        if (recipient.isLeft()) {
+            return recipient;
+        }
+
         return this.checkDuplicityByUser(Entity);
 
     }
@@ -62,6 +75,12 @@ export class ShareServiceImplementation extends BaseServiceImplementation<Share>
 
         if (result.isLeft()) {
             return result;
+        }
+
+        const recipient = await this.resolveRecipient(Entity);
+
+        if (recipient.isLeft()) {
+            return recipient;
         }
 
         return this.checkDuplicityByUser(Entity);
@@ -145,6 +164,33 @@ export class ShareServiceImplementation extends BaseServiceImplementation<Share>
 
     protected parentField(): string | null {
         return 'Person.ID';
+    }
+
+
+    /**
+     * A share only works for a registered user, compared by the e-mail stored
+     * in Users (the id of the signed-in user), so it is saved in that form.
+     */
+    private async resolveRecipient(Share: Share): Promise<Either<AbstractError, boolean>> {
+
+        if (!Share?.User) {
+            return right(true);
+        }
+
+        const user = await UserRepository.findByEmail(Share.User);
+
+        if (!user) {
+
+            const message = this.getMessage('error.shareUserNotFound', ServiceLocator.getRequest(), this.entityCode()) || 'error.shareUserNotFound';
+
+            return left(new AbstractError(message, 400, new Error().stack as string));
+
+        }
+
+        Share.User = user.Email;
+
+        return right(true);
+
     }
 
 

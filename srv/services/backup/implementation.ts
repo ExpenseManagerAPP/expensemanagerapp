@@ -629,7 +629,9 @@ export class BackupServiceImplementation extends BaseServiceImplementation<Backu
             Email: row.Email,
             Phone: this.get(row.Phone, row.Telefone),
             ExpenseTarget: this.get(row.ExpenseTarget, row.ObjetivoDeGasto),
-            ...this.audit(row)
+            ...this.audit(row),
+            // The restored people belong to whoever imports the backup.
+            createdBy: ServiceLocator.getRequest()?.user?.id || row.createdBy
         };
 
         this.attachImage(result, binaryFiles);

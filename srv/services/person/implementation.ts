@@ -394,6 +394,12 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
             const { PersonId, Year, Month } = request.data;
 
+            const allowed = await this.canSendInvoices(request.user, PersonId);
+
+            if (allowed.isLeft()) {
+                return allowed;
+            }
+
             this.validateEmailConfiguration(request);
 
             const today = this.getBrazilDate();
@@ -4929,6 +4935,28 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                 err.stack as string
             )
         );
+
+    }
+
+
+    /**
+     * Without a person the action e-mails every person of the app, so only an
+     * admin (or the scheduler, which runs as the privileged user) may call it.
+     * For one person the caller needs access to it (owner or share).
+     */
+    private async canSendInvoices(user: User, personId?: string): Promise<Either<AbstractError, boolean>> {
+
+        if (personId) {
+            return this.checkPermissionByPersonId(user, personId, 1);
+        }
+
+        if (user?.is?.('Admin')) {
+            return right(true);
+        }
+
+        const message = this.getMessage('error.sendInvoicesAllPersons', ServiceLocator.getRequest()) || 'error.sendInvoicesAllPersons';
+
+        return left(new PermissionDenied(message, 403, new Error().stack as string));
 
     }
 

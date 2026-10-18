@@ -31,3 +31,6 @@ using from './routes/liability';
 
 //Liability-Transaction
 using from './routes/liability-transaction';
+
+//Admin
+using from './routes/admin';
