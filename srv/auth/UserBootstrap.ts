@@ -8,7 +8,9 @@ const TECHNICAL_USERS = ['anonymous', 'privileged', 'system'];
 
 /**
  * Runs on every start and only fills what is missing:
- * - the administrator from ADMIN_EMAIL / ADMIN_PASSWORD;
+ * - the administrator from ADMIN_EMAIL / ADMIN_PASSWORD. The password is
+ *   only a first-access password: the admin must replace it on the first
+ *   sign-in, so the value kept in the environment stops working;
  * - a user for every owner (Persons.createdBy) and share recipient
  *   (Shares.User) of the existing data, without a password, so an admin
  *   can hand them one.
@@ -49,7 +51,7 @@ export class UserBootstrap {
                 Role: USER_ROLES.admin,
                 Status: USER_STATUSES.active,
                 PasswordHash: password ? await PasswordHasher.hash(password) : null,
-                MustChangePassword: false
+                MustChangePassword: true
             });
 
             cds.log('users').info('Administrator created:', email);
@@ -59,7 +61,7 @@ export class UserBootstrap {
 
         const changes = {
             ...(existing.Role !== USER_ROLES.admin ? { Role: USER_ROLES.admin } : {}),
-            ...(!existing.PasswordHash && password ? { PasswordHash: await PasswordHasher.hash(password) } : {})
+            ...(!existing.PasswordHash && password ? { PasswordHash: await PasswordHasher.hash(password), MustChangePassword: true } : {})
         };
 
         if (Object.keys(changes).length) {

@@ -33,7 +33,7 @@ jobs:
       CF_APP: ${{ vars.CF_APP || 'ExpenseManagerApp-srv' }}
       HANA_INSTANCE: ${{ vars.HANA_INSTANCE }}
       UI5_REPOSITORY: ${{ vars.UI5_REPOSITORY || 'ExpenseManagerAPP/expensemanagerapp.github.io' }}
-            GIT_AUTHOR_NAME: Davi Castro
+      GIT_AUTHOR_NAME: Davi Castro
       GIT_AUTHOR_EMAIL: davifgeo@gmail.com
 
     steps:

@@ -1,6 +1,6 @@
 # Expense Manager App - CAP
 
-Backend do [Expense Manager App](https://expensemanagerapp.github.io/) em SAP CAP (TypeScript), com SAP HANA Cloud e login próprio. O front-end UI5 fica em [expensemanagerapp.github.io](https://github.com/ExpenseManagerAPP/expensemanagerapp.github.io) e chama o serviço `/service/ExpenseManager/` diretamente (sem approuter); o fluxo de login está em [docs/authentication-flow.md](docs/authentication-flow.md).
+Backend do [Expense Manager App](https://expensemanagerapp.github.io/) em SAP CAP (TypeScript), com SAP HANA Cloud e login próprio. O front-end UI5 fica em [expensemanagerapp.github.io](https://github.com/ExpenseManagerAPP/expensemanagerapp.github.io) e chama o serviço `/service/ExpenseManager/` diretamente (sem approuter); o fluxo de login está em [docs/authentication-flow.md](docs/authentication-flow.md) e o funcionamento de usuários, administradores e `ADMIN_EMAIL` / `ADMIN_PASSWORD` em [docs/users-and-admins.md](docs/users-and-admins.md).
 
 ## Desenvolvimento local
 
