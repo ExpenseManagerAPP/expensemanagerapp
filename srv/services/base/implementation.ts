@@ -408,7 +408,9 @@ export abstract class BaseServiceImplementation<Entity> implements BaseService<E
             5: 'Cards',
             6: 'Invoices',
             7: 'Transactions',
-            8: 'Backups'
+            8: 'Backups',
+            9: 'Liabilities',
+            10: 'LiabilityTransactions'
         };
 
         const entityName = map[entityCode];
