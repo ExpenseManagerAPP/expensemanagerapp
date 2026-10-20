@@ -29,7 +29,7 @@
                                     </td>
                                     <td align="left" style="padding-left: 14px;">
                                         <div style="color: #ffffff; font-size: 20px; font-weight: 700; line-height: 26px;">Expense&nbsp;Manager</div>
-                                        <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">Detalhamento do período selecionado</div>
+                                        <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">{{T.Tagline}}</div>
                                     </td>
                                 </tr>
                             </table>
@@ -52,12 +52,12 @@
                             {{/if}}
 
                             <div style="font-size: 21px; font-weight: 700; color: #102a2b; line-height: 28px;">
-                                Olá, {{FirstName}}!
+                                {{T.Greeting}}
                             </div>
                             <div style="font-size: 14px; color: #687b7c; line-height: 22px; margin-top: 4px;">
-                                Segue o detalhamento das suas faturas e dívidas de
+                                {{T.IntroBefore}}
                                 <strong style="color: #0b5d52;">{{PeriodLabel}}</strong>.
-                                Os PDFs completos seguem em anexo.
+                                {{T.IntroAfter}}
                             </div>
 
                             <!-- Aviso de previsão -->
@@ -65,8 +65,7 @@
                                 style="border-collapse: separate; border-spacing: 0; margin-top: 18px; background-color: #fdf6e7; border-left: 4px solid #e0a63f; border-radius: 8px;">
                                 <tr>
                                     <td style="padding: 12px 16px; font-size: 13px; color: #7a5b16; line-height: 20px;">
-                                        <strong>Atenção:</strong> este envio é uma previsão/detalhamento do período
-                                        informado e não marca as faturas como enviadas.
+                                        <strong>{{T.WarningStrong}}</strong> {{T.WarningText}}
                                     </td>
                                 </tr>
                             </table>
@@ -76,7 +75,7 @@
                                 style="border-collapse: separate; border-spacing: 0; margin-top: 16px; background-color: #eafaf4; border-radius: 12px;">
                                 <tr>
                                     <td style="padding: 18px 22px;">
-                                        <div style="font-size: 11px; letter-spacing: 1.2px; color: #687b7c; font-weight: 700;">TOTAL EM FATURAS NO PERÍODO</div>
+                                        <div style="font-size: 11px; letter-spacing: 1.2px; color: #687b7c; font-weight: 700;">{{T.TotalPeriod}}</div>
                                         <div style="font-size: 30px; font-weight: 700; color: #0b5d52; line-height: 38px; margin-top: 2px;">
                                             {{TotalWithSymbol}}
                                         </div>
@@ -86,7 +85,7 @@
 
                             <!-- Faturas -->
                             <div style="font-size: 15px; font-weight: 700; color: #102a2b; margin-top: 24px;">
-                                Faturas por cartão
+                                {{T.CardsTitle}}
                             </div>
                             <div style="width: 26px; height: 3px; background-color: #14a582; border-radius: 2px; margin-top: 6px;"></div>
 
@@ -97,7 +96,7 @@
                                     <td style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #102a2b; font-weight: 600;">
                                         {{CardName}}
                                         <span style="display: block; font-weight: 400; color: #687b7c; font-size: 12px; margin-top: 2px;">
-                                            Vence em {{DueDate}} · {{MonthLabel}}
+                                            {{T.DueOn}} {{DueDate}} · {{MonthLabel}}
                                         </span>
                                     </td>
                                     <td align="right" style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #0b5d52; font-weight: 700; white-space: nowrap;">
@@ -110,7 +109,7 @@
                             <!-- Dívidas -->
                             {{#if HasDebts}}
                             <div style="font-size: 15px; font-weight: 700; color: #102a2b; margin-top: 26px;">
-                                Dívidas em aberto
+                                {{T.DebtsOpen}}
                             </div>
                             <div style="width: 26px; height: 3px; background-color: #14a582; border-radius: 2px; margin-top: 6px;"></div>
 
@@ -121,7 +120,7 @@
                                     <td style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #102a2b; font-weight: 600;">
                                         {{DebtName}}
                                         <span style="display: block; font-weight: 400; color: #687b7c; font-size: 12px; margin-top: 2px;">
-                                            {{PercentPaid}}% pago · vencimento dia {{DueDay}}
+                                            {{DebtProgress}}
                                         </span>
                                     </td>
                                     <td align="right" style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #c23b4b; font-weight: 700; white-space: nowrap;">
@@ -133,21 +132,20 @@
                             {{/if}}
 
                             <p style="font-size: 13px; color: #687b7c; line-height: 20px; margin-top: 22px;">
-                                Você recebeu um PDF por cartão e um PDF por dívida com métricas,
-                                progresso de pagamento e últimas movimentações.
+                                {{T.AttachNote}}
                             </p>
 
                             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top: 22px;">
                                 <tr>
                                     <td bgcolor="#087c67" style="background-color: #087c67; border-radius: 10px;">
                                         <a href="{{AppUrl}}" target="_blank"
-                                            style="display: inline-block; padding: 12px 22px; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none;">Abrir o Expense Manager</a>
+                                            style="display: inline-block; padding: 12px 22px; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none;">{{T.OpenApp}}</a>
                                     </td>
                                 </tr>
                             </table>
 
                             <p style="font-size: 13px; color: #687b7c; line-height: 20px;">
-                                Abraços,<br><strong style="color: #102a2b;">Equipe Expense Manager</strong>
+                                {{T.Closing}}<br><strong style="color: #102a2b;">{{T.Team}}</strong>
                             </p>
                         </td>
                     </tr>
@@ -156,10 +154,10 @@
                     <tr>
                         <td bgcolor="#073d3a" style="background-color: #073d3a; padding: 18px 28px;" align="center">
                             <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">
-                                © {{CopyrightYear}} Expense Manager · Todos os direitos reservados
+                                © {{CopyrightYear}} Expense Manager · {{T.Rights}}
                             </div>
                             <div style="color: #687b7c; font-size: 11px; line-height: 17px; margin-top: 4px;">
-                                {{#if ReplyTo}}Dúvidas? Responda este email para falar com {{ReplyTo}}.{{else}}Esta é uma mensagem automática. Por favor, não responda.{{/if}}
+                                {{#if ReplyTo}}{{T.FooterReply}} {{ReplyTo}}.{{else}}{{T.FooterAuto}}{{/if}}
                             </div>
                         </td>
                     </tr>

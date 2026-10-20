@@ -29,7 +29,7 @@
                                     </td>
                                     <td align="left" style="padding-left: 14px;">
                                         <div style="color: #ffffff; font-size: 20px; font-weight: 700; line-height: 26px;">Expense&nbsp;Manager</div>
-                                        <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">Gestão simples das suas finanças pessoais</div>
+                                        <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">{{T.Tagline}}</div>
                                     </td>
                                 </tr>
                             </table>
@@ -52,11 +52,11 @@
                             {{/if}}
 
                             <div style="font-size: 21px; font-weight: 700; color: #102a2b; line-height: 28px;">
-                                Olá, {{FirstName}}!
+                                {{T.Greeting}}
                             </div>
                             <div style="font-size: 14px; color: #687b7c; line-height: 22px; margin-top: 4px;">
-                                Este é o resumo da sua fatura do cartão referente a <strong style="color: #0b5d52;">{{PeriodLabel}}</strong>.
-                                Os PDFs com o detalhamento completo seguem em anexo.
+                                {{T.IntroBefore}} <strong style="color: #0b5d52;">{{PeriodLabel}}</strong>.
+                                {{T.IntroAfter}}
                             </div>
 
                             <!-- Total do período -->
@@ -64,7 +64,7 @@
                                 style="border-collapse: separate; border-spacing: 0; margin-top: 20px; background-color: #eafaf4; border-radius: 12px;">
                                 <tr>
                                     <td style="padding: 18px 22px;">
-                                        <div style="font-size: 11px; letter-spacing: 1.2px; color: #687b7c; font-weight: 700;">TOTAL DA FATURA</div>
+                                        <div style="font-size: 11px; letter-spacing: 1.2px; color: #687b7c; font-weight: 700;">{{T.TotalInvoice}}</div>
                                         <div style="font-size: 30px; font-weight: 700; color: #0b5d52; line-height: 38px; margin-top: 2px;">
                                             {{TotalWithSymbol}}
                                         </div>
@@ -76,11 +76,11 @@
                             <table width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse: separate; border-spacing: 8px 0; margin-top: 12px;">
                                 <tr>
                                     <td width="50%" bgcolor="#f4f7f8" style="background-color: #f4f7f8; border-radius: 10px; padding: 12px 16px;">
-                                        <span style="font-size: 11px; letter-spacing: 1px; color: #687b7c; font-weight: 700;">FATURAS</span><br>
+                                        <span style="font-size: 11px; letter-spacing: 1px; color: #687b7c; font-weight: 700;">{{T.Invoices}}</span><br>
                                         <span style="font-size: 20px; font-weight: 700; color: #102a2b;">{{InvoiceCount}}</span>
                                     </td>
                                     <td width="50%" bgcolor="#f4f7f8" style="background-color: #f4f7f8; border-radius: 10px; padding: 12px 16px;">
-                                        <span style="font-size: 11px; letter-spacing: 1px; color: #687b7c; font-weight: 700;">ANEXOS</span><br>
+                                        <span style="font-size: 11px; letter-spacing: 1px; color: #687b7c; font-weight: 700;">{{T.Attachments}}</span><br>
                                         <span style="font-size: 20px; font-weight: 700; color: #102a2b;">{{AttachmentCount}}</span>
                                     </td>
                                 </tr>
@@ -88,7 +88,7 @@
 
                             <!-- Faturas -->
                             <div style="font-size: 15px; font-weight: 700; color: #102a2b; margin-top: 26px;">
-                                Faturas por cartão
+                                {{T.CardsTitle}}
                             </div>
                             <div style="width: 26px; height: 3px; background-color: #14a582; border-radius: 2px; margin-top: 6px;"></div>
 
@@ -99,7 +99,7 @@
                                     <td style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #102a2b; font-weight: 600;">
                                         {{CardName}}
                                         <span style="display: block; font-weight: 400; color: #687b7c; font-size: 12px; margin-top: 2px;">
-                                            Vence em {{DueDate}}
+                                            {{T.DueOn}} {{DueDate}}
                                         </span>
                                     </td>
                                     <td align="right" style="padding: 11px 4px; border-bottom: 1px solid #e7eeee; color: #0b5d52; font-weight: 700; white-space: nowrap;">
@@ -110,21 +110,20 @@
                             </table>
 
                             <p style="font-size: 13px; color: #687b7c; line-height: 20px; margin-top: 22px;">
-                                Você recebeu um PDF por cartão com os gastos por categoria,
-                                movimentos da fatura e valores destacados.
+                                {{T.AttachNote}}
                             </p>
 
                             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top: 22px;">
                                 <tr>
                                     <td bgcolor="#087c67" style="background-color: #087c67; border-radius: 10px;">
                                         <a href="{{AppUrl}}" target="_blank"
-                                            style="display: inline-block; padding: 12px 22px; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none;">Abrir o Expense Manager</a>
+                                            style="display: inline-block; padding: 12px 22px; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none;">{{T.OpenApp}}</a>
                                     </td>
                                 </tr>
                             </table>
 
                             <p style="font-size: 13px; color: #687b7c; line-height: 20px;">
-                                Abraços,<br><strong style="color: #102a2b;">Equipe Expense Manager</strong>
+                                {{T.Closing}}<br><strong style="color: #102a2b;">{{T.Team}}</strong>
                             </p>
                         </td>
                     </tr>
@@ -133,10 +132,10 @@
                     <tr>
                         <td bgcolor="#073d3a" style="background-color: #073d3a; padding: 18px 28px;" align="center">
                             <div style="color: #bfe8d8; font-size: 12px; line-height: 18px;">
-                                © {{CopyrightYear}} Expense Manager · Todos os direitos reservados
+                                © {{CopyrightYear}} Expense Manager · {{T.Rights}}
                             </div>
                             <div style="color: #687b7c; font-size: 11px; line-height: 17px; margin-top: 4px;">
-                                {{#if ReplyTo}}Dúvidas? Responda este email para falar com {{ReplyTo}}.{{else}}Esta é uma mensagem automática. Por favor, não responda.{{/if}}
+                                {{#if ReplyTo}}{{T.FooterReply}} {{ReplyTo}}.{{else}}{{T.FooterAuto}}{{/if}}
                             </div>
                         </td>
                     </tr>

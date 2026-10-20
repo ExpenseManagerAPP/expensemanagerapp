@@ -14,6 +14,7 @@ import { Mailer } from "@/infrastructure/Mailer";
 import { ImageThumbnail } from "@/infrastructure/ImageThumbnail";
 import { HtmlText } from "@/infrastructure/HtmlText";
 import { appUrl } from "@/infrastructure/AppUrl";
+import { mailLocale, type MailLocale } from "@/infrastructure/MailLocale";
 
 const EMAIL_LOGO_SIZE = 96;
 const EMAIL_PHOTO_SIZE = 176;
@@ -422,6 +423,13 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
             const request = ServiceLocator.getRequest();
 
+            // Idioma dos e-mails/PDFs: segue o locale do usuário logado
+            // (Accept-Language), com default 'pt' — mesmo padrão do
+            // AccountMails para confirmação de conta e reset de senha.
+            const sLocale = mailLocale(request);
+            const t = (key: string, args?: Record<string, any>) =>
+                this.mailText(sLocale, key, args);
+
             const { PersonId, Year, Month } = request.data;
 
             const allowed = await this.canSendInvoices(request.user, PersonId);
@@ -667,7 +675,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             invoice,
                             card,
                             invoiceTransactions,
-                            analytics
+                            analytics,
+                            sLocale
                         );
 
                         if (pdfResult.isLeft()) continue;
@@ -713,7 +722,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         BalanceWithSymbol:
                             this.pdfMoney(
                                 liability.Currency?.Code,
-                                balance.toNumber()
+                                balance.toNumber(),
+                                sLocale
                             ),
                         TotalAmount:
                             Number(liability.TotalAmount ?? 0),
@@ -737,7 +747,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         liability,
                         balance,
                         summary,
-                        lastMovements
+                        lastMovements,
+                        sLocale
                     );
 
                     if (pdfResult.isLeft()) continue;
@@ -746,7 +757,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                     attachments.push({
                         filename:
-                            `Divida ${this.sanitizeFileName(liability.Name)}.pdf`,
+                            `${t('attachment.liability')} ${this.sanitizeFileName(liability.Name)}.pdf`,
                         content: pdfResult.value
                     });
 
@@ -818,13 +829,14 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         consolidatedDebts,
                         today.year,
                         today.month,
-                        this.getMessage(`month.${today.month}`, request),
-                        currency
+                        t(`month.${today.month}`),
+                        currency,
+                        sLocale
                     );
 
                 if (consolidatedResult.isRight()) {
                     attachments.push({
-                        filename: `Visao Geral ${this.sanitizeFileName(person.Name)} ${this.addLeftZeros(today.month)}-${today.year}.pdf`,
+                        filename: `${t('attachment.overview')} ${this.sanitizeFileName(person.Name)} ${this.addLeftZeros(today.month)}-${today.year}.pdf`,
                         content: consolidatedResult.value
                     });
                 }
@@ -866,13 +878,21 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                 const oIsPrediction = Boolean(Year || Month);
 
                 const oPeriodLabel =
-                    `${this.getMessage(`month.${today.month}`, request)} de ${today.year}`;
+                    t('period.label', {
+                        month: t(`month.${today.month}`),
+                        year: today.year
+                    });
 
                 const template = oIsPrediction
                     ? cache._predictionTemplateCache
                     : cache._mailTemplateCache;
 
                 const html = template({
+                    T: this.emailTexts(sLocale, oIsPrediction),
+                    Greeting: t('email.greeting', {
+                        name:
+                            String(person.Name || '').trim().split(/\s+/)[0]
+                    }),
                     FirstName:
                         String(person.Name || '').trim().split(/\s+/)[0],
                     CopyrightYear: this.getBrazilDate().year,
@@ -881,7 +901,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     AppUrl: appUrl(),
                     ReplyTo: oReplyTo,
                     TotalWithSymbol:
-                        this.pdfMoney(currency, totalAmount.toNumber()),
+                        this.pdfMoney(currency, totalAmount.toNumber(), sLocale),
                     InvoiceCount: invoicesToSend.length,
                     AttachmentCount:
                         attachments.filter(a => !a.cid).length,
@@ -896,11 +916,15 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 `${this.addLeftZeros(card?.DueDay || 0)}/` +
                                 `${this.addLeftZeros(inv.Month)}/${inv.Year}`,
                             MonthLabel:
-                                `${this.getMessage(`month.${inv.Month}`, request)} de ${inv.Year}`,
+                                t('period.label', {
+                                    month: t(`month.${inv.Month}`),
+                                    year: inv.Year
+                                }),
                             AmountWithSymbol:
                                 this.pdfMoney(
                                     inv.Currency?.Code,
-                                    inv.TotalAmount?.toNumber()
+                                    inv.TotalAmount?.toNumber(),
+                                    sLocale
                                 )
                         };
 
@@ -909,8 +933,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     Debts: debtSummaries.map(d => ({
                         DebtName: d.DebtName,
                         BalanceWithSymbol: d.BalanceWithSymbol,
-                        PercentPaid: d.PercentPaid,
-                        DueDay: d.DueDay
+                        DebtProgress: t('email.debt.progress', {
+                            percent: d.PercentPaid,
+                            day: d.DueDay
+                        })
                     }))
                 });
 
@@ -918,10 +944,12 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     from: { name: 'Expense Manager', address: cache._smtpSender },
                     to: person.Email,
                     replyTo: oReplyTo,
-                    subject:
+                    subject: t(
                         oIsPrediction
-                            ? `Detalhamento do período · ${this.addLeftZeros(today.month)}/${today.year}`
-                            : `Suas faturas · ${this.addLeftZeros(today.month)}/${today.year}`,
+                            ? 'email.subject.prediction'
+                            : 'email.subject.invoices',
+                        { period: `${this.addLeftZeros(today.month)}/${today.year}` }
+                    ),
                     html,
                     text: HtmlText.from(html),
                     attachments
@@ -2095,6 +2123,65 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
     }
 
 
+    /**
+     * Texto i18n para e-mails/PDFs, com locale explícito (não depende
+     * do request em execução — o envio pode ser disparado pelo scheduler).
+     */
+    private mailText(
+        Locale: MailLocale,
+        Key: string,
+        Args?: Record<string, any>
+    ): string {
+
+        return cds.i18n.messages.at(Key, Locale, Args ?? {}) as string;
+
+    }
+
+
+    /**
+     * Blocos de texto dos templates Handlebars de e-mail, resolvidos no
+     * idioma do envio (pt por default).
+     */
+    private emailTexts(
+        Locale: MailLocale,
+        IsPrediction: boolean
+    ): Record<string, string> {
+
+        const t = (key: string) => this.mailText(Locale, key);
+
+        return {
+            Tagline: t(IsPrediction
+                ? 'email.prediction.tagline'
+                : 'email.tagline'),
+            IntroBefore: t(IsPrediction
+                ? 'email.prediction.intro.before'
+                : 'email.invoice.intro.before'),
+            IntroAfter: t(IsPrediction
+                ? 'email.prediction.intro.after'
+                : 'email.invoice.intro.after'),
+            TotalInvoice: t('email.total.invoice'),
+            TotalPeriod: t('email.prediction.total'),
+            Invoices: t('email.invoices'),
+            Attachments: t('email.attachments'),
+            CardsTitle: t('email.cards.title'),
+            DebtsOpen: t('debts.open'),
+            DueOn: t('due.on'),
+            AttachNote: t(IsPrediction
+                ? 'email.attach.note.prediction'
+                : 'email.attach.note.invoice'),
+            OpenApp: t('email.open.app'),
+            Closing: t('email.closing'),
+            Team: t('email.team'),
+            Rights: t('email.rights'),
+            FooterReply: t('email.footer.reply'),
+            FooterAuto: t('email.footer.auto'),
+            WarningStrong: t('email.prediction.warning.strong'),
+            WarningText: t('email.prediction.warning')
+        };
+
+    }
+
+
     private pdfPalette() {
 
         return {
@@ -2117,10 +2204,20 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
     }
 
 
-    private pdfFormatAmount(Value: number | null | undefined): string {
+    private pdfFormatAmount(
+        Value: number | null | undefined,
+        Locale: MailLocale = 'pt',
+        Code?: string | null
+    ): string {
+
+        // Formato americano (1,234.56) somente em inglês e para USD;
+        // demais moedas mantêm o formato brasileiro (1.234,56).
+        const oUseUSFormat =
+            Locale === 'en' &&
+            String(Code ?? '').toUpperCase() === 'USD';
 
         return Number(Value ?? 0).toLocaleString(
-            "pt-BR",
+            oUseUSFormat ? 'en-US' : 'pt-BR',
             { minimumFractionDigits: 2, maximumFractionDigits: 2 }
         );
 
@@ -2141,13 +2238,17 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
     }
 
 
-    private pdfMoney(Code: string | null | undefined, Value: number | null | undefined): string {
+    private pdfMoney(
+        Code: string | null | undefined,
+        Value: number | null | undefined,
+        Locale: MailLocale = 'pt'
+    ): string {
 
         const oSymbol = this.currencySymbol(Code);
 
         return oSymbol
-            ? `${oSymbol} ${this.pdfFormatAmount(Value)}`
-            : this.pdfFormatAmount(Value);
+            ? `${oSymbol} ${this.pdfFormatAmount(Value, Locale, Code)}`
+            : this.pdfFormatAmount(Value, Locale, Code);
 
     }
 
@@ -2212,7 +2313,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
         BuildContent: (
             Doc: InstanceType<typeof PDFDocument>,
             Shell: { newPage: () => void }
-        ) => Promise<void>
+        ) => Promise<void>,
+        Locale: MailLocale = 'pt'
     ): Promise<Either<AbstractError, Buffer>> {
 
         try {
@@ -2279,8 +2381,11 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .font('Helvetica')
                         .fontSize(8.5)
                         .text(
-                            `Gerado em ${this.addLeftZeros(today.day)}/` +
-                            `${this.addLeftZeros(today.month)}/${today.year}`,
+                            this.mailText(Locale, 'pdf.generated.on', {
+                                date:
+                                    `${this.addLeftZeros(today.day)}/` +
+                                    `${this.addLeftZeros(today.month)}/${today.year}`
+                            }),
                             0, 66,
                             { width: doc.page.width - 44, align: 'right', lineBreak: false }
                         );
@@ -2325,13 +2430,16 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .font('Helvetica')
                         .fontSize(8)
                         .text(
-                            'Documento gerado automaticamente pelo Expense Manager.',
+                            this.mailText(Locale, 'pdf.footer.note'),
                             44, footerY + 9,
                             { lineBreak: false }
                         );
 
                     doc.text(
-                        `Página ${i - range.start + 1} de ${range.count}`,
+                        this.mailText(Locale, 'pdf.page.of', {
+                            current: i - range.start + 1,
+                            total: range.count
+                        }),
                         44, footerY + 9,
                         { width: doc.page.width - 88, align: 'right', lineBreak: false }
                     );
@@ -2366,19 +2474,25 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
         Invoice: InvoiceModel,
         Card: CardModel,
         Transactions: TransactionModel[],
-        CardExpensesByCategory: CardExpensesByCategoryModel
+        CardExpensesByCategory: CardExpensesByCategoryModel,
+        Locale: MailLocale = 'pt'
     ): Promise<Either<AbstractError, Buffer>> {
 
         const c = this.pdfPalette();
+        const t = (key: string, args?: Record<string, any>) =>
+            this.mailText(Locale, key, args);
         const oCurrency = Invoice?.Currency?.Code || '';
-        const oMonthDescription =
-            this.getMessage(`month.${Invoice?.Month}`, ServiceLocator.getRequest());
+        const oMonthDescription = t(`month.${Invoice?.Month}`);
+        const oPeriodLabel = t('period.label', {
+            month: oMonthDescription,
+            year: Invoice?.Year
+        });
 
         const oCategories = [...CardExpensesByCategory.Categories];
 
         return this.renderBrandedPdf(
             Logo,
-            `Fatura · ${Card?.Name} · ${oMonthDescription} de ${Invoice?.Year}`,
+            `${t('pdf.invoice.subtitle')} · ${Card?.Name} · ${oPeriodLabel}`,
             async (doc, shell) => {
 
                 const usableWidth = doc.page.width - 88;
@@ -2420,7 +2534,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica')
                     .fontSize(10)
-                    .text(`${Person?.Name}, este é o detalhamento da sua fatura do cartão`,
+                    .text(t('pdf.invoice.intro', { name: Person?.Name }),
                         44, doc.y, { width: usableWidth, align: 'center' });
 
                 doc
@@ -2446,17 +2560,17 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica-Bold')
                     .fontSize(8)
-                    .text('TOTAL DA FATURA', 72, cardY + 20, { characterSpacing: 1.2, lineBreak: false });
+                    .text(t('pdf.invoice.total'), 72, cardY + 20, { characterSpacing: 1.2, lineBreak: false });
 
                 doc
                     .fillColor(c.primary)
                     .font('Helvetica-Bold')
                     .fontSize(30)
-                    .text(this.pdfMoney(oCurrency, Invoice?.TotalAmount?.toNumber()),
+                    .text(this.pdfMoney(oCurrency, Invoice?.TotalAmount?.toNumber(), Locale),
                         72, cardY + 36, { lineBreak: false });
 
                 const dueLabel =
-                    `Vence em ${this.addLeftZeros(Card?.DueDay)}/` +
+                    `${t('due.on')} ${this.addLeftZeros(Card?.DueDay)}/` +
                     `${this.addLeftZeros(Invoice?.Month)}/${Invoice?.Year}`;
 
                 doc.font('Helvetica-Bold').fontSize(8);
@@ -2465,15 +2579,15 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                 drawPill(dueLabel, pillX, cardY + 20, c.tint, c.primaryDark);
 
-                pillX -= (doc.widthOfString(`${oMonthDescription} de ${Invoice?.Year}`) + 16) + 8;
+                pillX -= (doc.widthOfString(oPeriodLabel) + 16) + 8;
 
-                drawPill(`${oMonthDescription} de ${Invoice?.Year}`, pillX, cardY + 20, c.surface, c.muted);
+                drawPill(oPeriodLabel, pillX, cardY + 20, c.surface, c.muted);
 
                 doc
                     .fillColor(c.muted)
                     .font('Helvetica')
                     .fontSize(9.5)
-                    .text('Este é o valor que você precisa pagar neste mês.',
+                    .text(t('pdf.invoice.note'),
                         72, cardY + cardH - 28, { lineBreak: false });
 
                 doc.y = cardY + cardH + 24;
@@ -2485,8 +2599,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                     this.pdfSectionTitle(
                         doc,
-                        'Gastos por categoria',
-                        'Distribuição das despesas da fatura entre as categorias.'
+                        t('pdf.category.title'),
+                        t('pdf.invoice.category.hint')
                     );
 
                     const totalOfCategories =
@@ -2505,8 +2619,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             .fillColor(c.muted)
                             .font('Helvetica-Bold')
                             .fontSize(8)
-                            .text('CATEGORIA', nameX, doc.y, { characterSpacing: 1, lineBreak: false })
-                            .text('TOTAL', amountRight - 90, doc.y,
+                            .text(t('pdf.col.category'), nameX, doc.y, { characterSpacing: 1, lineBreak: false })
+                            .text(t('pdf.col.total'), amountRight - 90, doc.y,
                                 { width: 90, align: 'right', characterSpacing: 1, lineBreak: false })
                             .text('%', percentRight - 50, doc.y,
                                 { width: 50, align: 'right', characterSpacing: 1, lineBreak: false });
@@ -2582,7 +2696,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             .text(
                                 this.pdfMoney(
                                     CardExpensesByCategory?.Currency?.Code || oCurrency,
-                                    category.TotalAmount?.toNumber()
+                                    category.TotalAmount?.toNumber(),
+                                    Locale
                                 ),
                                 amountRight - 170, rowY + 3,
                                 { width: 170, align: 'right', lineBreak: false }
@@ -2619,8 +2734,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                     this.pdfSectionTitle(
                         doc,
-                        'Movimentos da fatura',
-                        `${Transactions.length} lançamento(s) nesta fatura.`
+                        t('pdf.invoice.movements.title'),
+                        t('pdf.invoice.movements.hint', {
+                            count: Transactions.length
+                        })
                     );
 
                     const dateX = 44;
@@ -2635,11 +2752,11 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             .fillColor(c.muted)
                             .font('Helvetica-Bold')
                             .fontSize(8)
-                            .text('DATA', dateX, doc.y, { characterSpacing: 1, lineBreak: false })
-                            .text('DESCRIÇÃO', descX, doc.y, { characterSpacing: 1, lineBreak: false })
-                            .text('CATEGORIA', catX, doc.y, { characterSpacing: 1, lineBreak: false })
-                            .text('PARCELA', instX, doc.y, { characterSpacing: 1, lineBreak: false })
-                            .text('VALOR', valueRight - 100, doc.y,
+                            .text(t('pdf.col.date'), dateX, doc.y, { characterSpacing: 1, lineBreak: false })
+                            .text(t('pdf.col.description'), descX, doc.y, { characterSpacing: 1, lineBreak: false })
+                            .text(t('pdf.col.category'), catX, doc.y, { characterSpacing: 1, lineBreak: false })
+                            .text(t('pdf.col.installment'), instX, doc.y, { characterSpacing: 1, lineBreak: false })
+                            .text(t('pdf.col.amount'), valueRight - 100, doc.y,
                                 { width: 100, align: 'right', characterSpacing: 1, lineBreak: false });
 
                         doc.y += 13;
@@ -2708,7 +2825,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             .fillColor(c.muted)
                             .font('Helvetica')
                             .fontSize(9)
-                            .text(this.pdfFitText(oCategory?.Name || 'Sem categoria', 17),
+                            .text(this.pdfFitText(oCategory?.Name || t('pdf.no.category'), 17),
                                 catX, rowY, { width: 126, lineBreak: false })
                             .text(installment, instX, rowY,
                                 { width: 60, lineBreak: false });
@@ -2720,7 +2837,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             .text(
                                 this.pdfMoney(
                                     transaction?.Currency?.Code || oCurrency,
-                                    transaction.Amount?.toNumber()
+                                    transaction.Amount?.toNumber(),
+                                    Locale
                                 ),
                                 valueRight - 120, rowY,
                                 { width: 120, align: 'right', lineBreak: false }
@@ -2732,7 +2850,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                 }
 
-            }
+            },
+            Locale
         );
 
     }
@@ -2744,17 +2863,20 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
         Liability: LiabilityModel,
         Balance: Decimal,
         Summary: LiabilityTransactionSummary,
-        LastMovements: LiabilityTransactionModel[]
+        LastMovements: LiabilityTransactionModel[],
+        Locale: MailLocale = 'pt'
     ): Promise<Either<AbstractError, Buffer>> {
 
         const c = this.pdfPalette();
+        const t = (key: string, args?: Record<string, any>) =>
+            this.mailText(Locale, key, args);
         const oCurrency = Liability?.Currency?.Code || '';
         const oPercentage = paymentPercentage(Liability?.TotalAmount, Summary);
         const oIsOpen = Balance.greaterThan(0);
 
         return this.renderBrandedPdf(
             Logo,
-            `Dívida · ${Liability?.Name}`,
+            `${t('pdf.liability.subtitle')} · ${Liability?.Name}`,
             async (doc, shell) => {
 
                 const usableWidth = doc.page.width - 88;
@@ -2821,7 +2943,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica')
                     .fontSize(10)
-                    .text(`${Person?.Name}, este é o detalhamento da sua dívida`,
+                    .text(t('pdf.liability.intro', { name: Person?.Name }),
                         44, doc.y, { width: usableWidth, align: 'center' });
 
                 doc
@@ -2848,16 +2970,18 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica-Bold')
                     .fontSize(8)
-                    .text('SALDO DEVEDOR', 72, heroY + 20, { characterSpacing: 1.2, lineBreak: false });
+                    .text(t('pdf.liability.balance').toUpperCase(), 72, heroY + 20, { characterSpacing: 1.2, lineBreak: false });
 
                 doc
                     .fillColor(oIsOpen ? c.primary : c.positive)
                     .font('Helvetica-Bold')
                     .fontSize(30)
-                    .text(this.pdfMoney(oCurrency, Balance.toNumber()),
+                    .text(this.pdfMoney(oCurrency, Balance.toNumber(), Locale),
                         72, heroY + 36, { lineBreak: false });
 
-                const statusLabel = oIsOpen ? 'EM ABERTO' : 'QUITADA';
+                const statusLabel = oIsOpen
+                    ? t('pdf.status.open')
+                    : t('pdf.status.settled');
                 const statusBg = oIsOpen ? c.tint : c.positiveBg;
                 const statusFg = oIsOpen ? c.primaryDark : c.positive;
 
@@ -2873,7 +2997,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica')
                     .fontSize(9.5)
-                    .text('Este é o valor que ainda falta pagar.',
+                    .text(t('pdf.liability.note'),
                         72, heroY + heroH - 28, { lineBreak: false });
 
                 doc.y = heroY + heroH + 18;
@@ -2897,7 +3021,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica')
                     .fontSize(9)
-                    .text(`${progressPct.toFixed(1)}% pago`,
+                    .text(t('pdf.percent.paid', { value: progressPct.toFixed(1) }),
                         44, doc.y + 12,
                         { width: trackW, align: 'right', lineBreak: false });
 
@@ -2928,22 +3052,24 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                 };
 
-                drawMiniCard('Valor total da dívida',
-                    this.pdfMoney(oCurrency, Liability?.TotalAmount?.toNumber()),
+                drawMiniCard(t('pdf.liability.total'),
+                    this.pdfMoney(oCurrency, Liability?.TotalAmount?.toNumber(), Locale),
                     44, doc.y);
 
-                drawMiniCard('Total pago até agora',
-                    this.pdfMoney(oCurrency, Summary.TotalIn.toNumber()),
+                drawMiniCard(t('pdf.liability.paid'),
+                    this.pdfMoney(oCurrency, Summary.TotalIn.toNumber(), Locale),
                     44 + colW + colGap, doc.y);
 
                 doc.y += miniH + 12;
 
-                drawMiniCard('Acréscimos aplicados',
-                    this.pdfMoney(oCurrency, Summary.TotalOut.toNumber()),
+                drawMiniCard(t('pdf.liability.surcharges'),
+                    this.pdfMoney(oCurrency, Summary.TotalOut.toNumber(), Locale),
                     44, doc.y);
 
-                drawMiniCard('Vencimento mensal',
-                    `Dia ${this.addLeftZeros(Liability?.DueDay ?? 0)}`,
+                drawMiniCard(t('pdf.liability.due'),
+                    t('pdf.day.of', {
+                        day: this.addLeftZeros(Liability?.DueDay ?? 0)
+                    }),
                     44 + colW + colGap, doc.y);
 
                 doc.y += miniH + 12;
@@ -2960,7 +3086,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .fillColor(c.muted)
                         .font('Helvetica-Bold')
                         .fontSize(7.5)
-                        .text('DESCRIÇÃO', 58, doc.y + 10, { characterSpacing: 1, lineBreak: false });
+                        .text(t('pdf.col.description').toUpperCase(), 58, doc.y + 10, { characterSpacing: 1, lineBreak: false });
 
                     doc
                         .fillColor(c.ink)
@@ -2978,9 +3104,11 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                 this.pdfSectionTitle(
                     doc,
-                    'Últimas movimentações',
+                    t('pdf.movements.title'),
                     LastMovements.length
-                        ? `Exibindo as ${LastMovements.length} mais recentes.`
+                        ? t('pdf.movements.hint', {
+                            count: LastMovements.length
+                        })
                         : undefined
                 );
 
@@ -3001,7 +3129,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .fillColor(c.primaryDark)
                         .font('Helvetica')
                         .fontSize(10.5)
-                        .text('Nenhuma movimentação registrada até o momento.',
+                        .text(t('pdf.movements.empty'),
                             44, emptyY + 24,
                             { width: usableWidth, align: 'center', lineBreak: false });
 
@@ -3013,10 +3141,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     .fillColor(c.muted)
                     .font('Helvetica-Bold')
                     .fontSize(8)
-                    .text('DATA', dateX, doc.y, { characterSpacing: 1, lineBreak: false })
-                    .text('DESCRIÇÃO', descX, doc.y, { characterSpacing: 1, lineBreak: false })
-                    .text('TIPO', typeX, doc.y, { characterSpacing: 1, lineBreak: false })
-                    .text('VALOR', valueRight - 100, doc.y,
+                    .text(t('pdf.col.date'), dateX, doc.y, { characterSpacing: 1, lineBreak: false })
+                    .text(t('pdf.col.description'), descX, doc.y, { characterSpacing: 1, lineBreak: false })
+                    .text(t('pdf.col.type'), typeX, doc.y, { characterSpacing: 1, lineBreak: false })
+                    .text(t('pdf.col.amount'), valueRight - 100, doc.y,
                         { width: 100, align: 'right', characterSpacing: 1, lineBreak: false });
 
                 doc.y += 13;
@@ -3052,7 +3180,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                     const isIn = movement.Type === 'IN';
 
-                    const typeText = isIn ? 'Pagamento' : 'Acréscimo';
+                    const typeText = isIn
+                        ? t('pdf.movement.payment')
+                        : t('pdf.movement.surcharge');
                     const typeBg = isIn ? c.positiveBg : c.negativeBg;
                     const typeFg = isIn ? c.positive : c.negative;
 
@@ -3079,7 +3209,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .text(
                             this.pdfMoney(
                                 movement?.Currency?.Code || oCurrency,
-                                movement.Amount?.toNumber()
+                                movement.Amount?.toNumber(),
+                                Locale
                             ),
                             valueRight - 120, rowY,
                             { width: 120, align: 'right', lineBreak: false }
@@ -3147,12 +3278,19 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
         Year: number,
         Month: number,
         MonthDescription: string,
-        CurrencyCode: string
+        CurrencyCode: string,
+        Locale: MailLocale = 'pt'
     ): Promise<Either<AbstractError, Buffer>> {
 
         try {
 
             const c = this.pdfPalette();
+            const t = (key: string, args?: Record<string, any>) =>
+                this.mailText(Locale, key, args);
+            const oPeriodLabel = t('period.label', {
+                month: MonthDescription,
+                year: Year
+            });
 
             const oCurrency =
                 this.currencySymbol(CurrencyCode);
@@ -3170,7 +3308,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
             for (const tx of Transactions) {
 
                 const catId = tx.Category?.ID || '__none__';
-                const catName = tx.Category?.Name || 'Sem categoria';
+                const catName = tx.Category?.Name || t('pdf.no.category');
 
                 if (!categoryMap.has(catId)) {
                     categoryMap.set(catId, {
@@ -3234,7 +3372,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
             return await this.renderBrandedPdf(
                 Logo,
-                `Visão Geral · ${MonthDescription} ${Year}`,
+                `${t('pdf.overview.subtitle')} · ${oPeriodLabel}`,
                 async (doc, shell) => {
 
                     const oMaxY = doc.page.height - doc.page.margins.bottom;
@@ -3252,7 +3390,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                         if (!cardTotals.has(cardId)) {
                             cardTotals.set(cardId, {
-                                Name: tx.Card?.Name || 'Cartão',
+                                Name: tx.Card?.Name || t('pdf.default.card'),
                                 Total: 0,
                                 Count: 0
                             });
@@ -3284,7 +3422,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .fillColor(c.ink)
                         .font('Helvetica-Bold')
                         .fontSize(20)
-                        .text(`Olá, ${Person.Name?.split(' ')[0]}!`,
+                        .text(t('email.greeting', {
+                            name: Person.Name?.split(' ')[0]
+                        }),
                             72, doc.y, { lineBreak: false });
 
                     doc.y += 27;
@@ -3294,8 +3434,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .font('Helvetica')
                         .fontSize(10)
                         .text(
-                            `Visão completa das suas finanças em ` +
-                            `${MonthDescription} de ${Year}.`,
+                            t('pdf.overview.intro', { period: oPeriodLabel }),
                             72, doc.y, { lineBreak: false }
                         );
 
@@ -3315,8 +3454,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .font('Helvetica')
                         .fontSize(8.5)
                         .text(hasCards
-                            ? 'TOTAL DE DESPESAS NO MÊS'
-                            : 'TOTAL EM DÍVIDAS EM ABERTO',
+                            ? t('pdf.overview.total.expenses')
+                            : t('pdf.overview.total.debts'),
                             72, heroY + 16,
                         { characterSpacing: 1.2, lineBreak: false });
 
@@ -3327,7 +3466,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .text(
                             this.pdfMoney(
                                 CurrencyCode,
-                                hasCards ? totalAll : debtsTotal
+                                hasCards ? totalAll : debtsTotal,
+                                Locale
                             ),
                             72, heroY + 31, { lineBreak: false });
 
@@ -3337,10 +3477,14 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         .fontSize(9.5)
                         .text(
                             hasCards
-                                ? `${Transactions.length} transações · ` +
-                                  `${cardSummary.length} cartões · ` +
-                                  `${categorySummary.length} categorias`
-                                : `${Liabilities.length} dívida(s) em aberto`,
+                                ? t('pdf.overview.stats', {
+                                    transactions: Transactions.length,
+                                    cards: cardSummary.length,
+                                    categories: categorySummary.length
+                                })
+                                : t('pdf.overview.debts.stats', {
+                                    count: Liabilities.length
+                                }),
                             72, heroY + 68, { lineBreak: false }
                         );
 
@@ -3349,8 +3493,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     // tabela resumo por cartão (apenas com transações)
                     if (hasCards) {
 
-                        this.pdfSectionTitle(doc, 'Resumo por cartão',
-                            `${cardSummary.length} cartão(ões) neste mês.`);
+                        this.pdfSectionTitle(doc, t('pdf.overview.cards.title'),
+                            t('pdf.overview.cards.hint', {
+                                count: cardSummary.length
+                            }));
 
                         const sumNameX = 80;
                         const sumCountX = 330;
@@ -3362,11 +3508,11 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .fillColor(c.muted)
                                 .font('Helvetica-Bold')
                                 .fontSize(8)
-                                .text('CARTÃO', sumNameX, doc.y,
+                                .text(t('pdf.col.card'), sumNameX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('TRANSAÇÕES', sumCountX, doc.y,
+                                .text(t('pdf.col.transactions'), sumCountX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('VALOR', sumValueRight - 100, doc.y,
+                                .text(t('pdf.col.amount'), sumValueRight - 100, doc.y,
                                     {
                                         width: 100,
                                         align: 'right',
@@ -3450,7 +3596,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .fillColor(c.muted)
                                 .font('Helvetica')
                                 .fontSize(9)
-                                .text(`${cs.Count} transação(ões)`,
+                                .text(t('pdf.transactions.count', {
+                                    count: cs.Count
+                                }),
                                     sumCountX, rowY + 4,
                                     { width: 126, lineBreak: false });
 
@@ -3458,7 +3606,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .fillColor(c.ink)
                                 .font('Helvetica-Bold')
                                 .fontSize(10)
-                                .text(this.pdfMoney(CurrencyCode, cs.Total),
+                                .text(this.pdfMoney(CurrencyCode, cs.Total, Locale),
                                     sumValueRight - 120, rowY + 3,
                                     { width: 120, align: 'right', lineBreak: false });
 
@@ -3480,8 +3628,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                         shell.newPage();
 
-                        this.pdfSectionTitle(doc, 'Gastos por categoria',
-                            'Distribuição das despesas do mês entre as categorias.');
+                        this.pdfSectionTitle(doc, t('pdf.category.title'),
+                            t('pdf.overview.category.hint'));
 
                         const catNameX = 80;
                         const catBarX = 252;
@@ -3495,9 +3643,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .fillColor(c.muted)
                                 .font('Helvetica-Bold')
                                 .fontSize(8)
-                                .text('CATEGORIA', catNameX, doc.y,
+                                .text(t('pdf.col.category'), catNameX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('TOTAL', catAmountRight - 90, doc.y,
+                                .text(t('pdf.col.total'), catAmountRight - 90, doc.y,
                                     {
                                         width: 90,
                                         align: 'right',
@@ -3574,7 +3722,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                             doc.font('Helvetica').fontSize(7.5)
                                 .fillColor(c.muted)
-                                .text(`${cat.Count} transação(ões)`,
+                                .text(t('pdf.transactions.count', {
+                                    count: cat.Count
+                                }),
                                     catNameX, rowY + 17,
                                     { width: 165, lineBreak: false });
 
@@ -3598,7 +3748,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .font('Helvetica-Bold')
                                 .fontSize(10.5)
                                 .text(
-                                    this.pdfMoney(CurrencyCode, cat.TotalAmount),
+                                    this.pdfMoney(CurrencyCode, cat.TotalAmount, Locale),
                                     catAmountRight - 170, rowY + 3,
                                     { width: 170, align: 'right', lineBreak: false }
                                 );
@@ -3634,9 +3784,11 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 String(a.Date ?? '')
                                     .localeCompare(String(b.Date ?? '')));
 
-                        this.pdfSectionTitle(doc, 'Movimentos do mês',
-                            `${sortedTx.length} lançamento(s) em ` +
-                            `${MonthDescription} de ${Year}.`);
+                        this.pdfSectionTitle(doc, t('pdf.overview.movements.title'),
+                            t('pdf.overview.movements.hint', {
+                                count: sortedTx.length,
+                                period: oPeriodLabel
+                            }));
 
                         const txDateX = 44;
                         const txDescX = 102;
@@ -3651,17 +3803,17 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .fillColor(c.muted)
                                 .font('Helvetica-Bold')
                                 .fontSize(8)
-                                .text('DATA', txDateX, doc.y,
+                                .text(t('pdf.col.date'), txDateX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('DESCRIÇÃO', txDescX, doc.y,
+                                .text(t('pdf.col.description'), txDescX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('CARTÃO', txCardX, doc.y,
+                                .text(t('pdf.col.card'), txCardX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('CATEGORIA', txCatX, doc.y,
+                                .text(t('pdf.col.category'), txCatX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('PARCELA', txInstX, doc.y,
+                                .text(t('pdf.col.installment'), txInstX, doc.y,
                                     { characterSpacing: 1, lineBreak: false })
-                                .text('VALOR', txValueRight - 100, doc.y,
+                                .text(t('pdf.col.amount'), txValueRight - 100, doc.y,
                                     {
                                         width: 100,
                                         align: 'right',
@@ -3753,7 +3905,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 { width: 62, lineBreak: false })
                                 .text(
                                     this.pdfFitText(
-                                        tx.Category?.Name || 'Sem categoria', 13),
+                                        tx.Category?.Name || t('pdf.no.category'), 13),
                                     txCatX, rowY,
                                     { width: 96, lineBreak: false })
                                 .text(installment, txInstX, rowY,
@@ -3766,7 +3918,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 .text(
                                     this.pdfMoney(
                                         tx.Currency?.Code || CurrencyCode,
-                                        Number(tx.Amount ?? 0)
+                                        Number(tx.Amount ?? 0),
+                                        Locale
                                     ),
                                     txValueRight - 120, rowY,
                                     { width: 120, align: 'right', lineBreak: false }
@@ -3796,8 +3949,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                         // Página separada das movimentações.
                         shell.newPage();
 
-                        this.pdfSectionTitle(doc, 'Dívidas em aberto',
-                            `${Liabilities.length} dívida(s)`);
+                        this.pdfSectionTitle(doc, t('debts.open'),
+                            t('pdf.debts.count', {
+                                count: Liabilities.length
+                            }));
 
                         for (let i = 0; i < Liabilities.length; i++) {
 
@@ -3842,7 +3997,9 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                             doc.font('Helvetica-Bold').fontSize(7.5);
                             const badgeText =
-                                isPaid ? 'QUITADA' : 'EM ABERTO';
+                                isPaid
+                                    ? t('pdf.status.settled')
+                                    : t('pdf.status.open');
                             const badgeW =
                                 doc.widthOfString(badgeText) + 16;
 
@@ -3866,14 +4023,14 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             // saldo devedor
                             doc.font('Helvetica').fontSize(7.5)
                                 .fillColor(c.muted)
-                                .text('Saldo devedor',
+                                .text(t('pdf.liability.balance'),
                                     66, ly + 33, { lineBreak: false });
 
                             doc.font('Helvetica-Bold').fontSize(16)
                                 .fillColor(c.negative)
                                 .text(
                                     this.pdfMoney(
-                                        CurrencyCode, debt.Balance),
+                                        CurrencyCode, debt.Balance, Locale),
                                     66, ly + 43, { lineBreak: false });
 
                             // valores à direita
@@ -3881,20 +4038,20 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
 
                             doc.font('Helvetica').fontSize(7.5)
                                 .fillColor(c.muted)
-                                .text('Valor total',
+                                .text(t('pdf.debt.total'),
                                     infoX, ly + 33, { lineBreak: false });
 
                             doc.font('Helvetica-Bold').fontSize(10)
                                 .fillColor(c.ink)
                                 .text(
                                     this.pdfMoney(
-                                        CurrencyCode, debt.TotalAmount),
+                                        CurrencyCode, debt.TotalAmount, Locale),
                                     infoX, ly + 43,
                                     { width: 90, lineBreak: false });
 
                             doc.font('Helvetica').fontSize(7.5)
                                 .fillColor(c.muted)
-                                .text('Total pago',
+                                .text(t('pdf.debt.paid'),
                                     infoX + 100, ly + 33,
                                     { lineBreak: false });
 
@@ -3905,7 +4062,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                         CurrencyCode,
                                         Math.max(0,
                                             Number(debt.TotalAmount ?? 0) -
-                                            Number(debt.Balance ?? 0))
+                                            Number(debt.Balance ?? 0)),
+                                        Locale
                                     ),
                                     infoX + 100, ly + 43,
                                     { width: 90, lineBreak: false });
@@ -3936,8 +4094,10 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                             doc.font('Helvetica').fontSize(7.5)
                                 .fillColor(c.muted)
                                 .text(
-                                    `${pct.toFixed(0)}% pago · ` +
-                                    `vence dia ${debt.DueDay}`,
+                                    t('pdf.debt.progress', {
+                                        percent: pct.toFixed(0),
+                                        day: debt.DueDay
+                                    }),
                                     66 + (lw - 132) + 10, barY - 1,
                                     { width: 116, lineBreak: false });
 
@@ -3956,7 +4116,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                 doc.font('Helvetica-Bold')
                                     .fontSize(6.5)
                                     .fillColor(c.muted)
-                                    .text('ÚLTIMAS MOVIMENTAÇÕES',
+                                    .text(t('pdf.latest.movements'),
                                         66, sepY + 6,
                                         { characterSpacing: 1, lineBreak: false });
 
@@ -3980,8 +4140,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                             this.pdfFitText(
                                                 mov.Description ||
                                                 (isIn
-                                                    ? 'Pagamento'
-                                                    : 'Acréscimo'), 34),
+                                                    ? t('pdf.movement.payment')
+                                                    : t('pdf.movement.surcharge')), 34),
                                             108, myY - 1,
                                             { width: 210, lineBreak: false });
 
@@ -3989,8 +4149,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                         .fontSize(7.5)
                                         .fillColor(c.muted)
                                         .text(isIn
-                                            ? 'Pagamento'
-                                            : 'Acréscimo',
+                                            ? t('pdf.movement.payment')
+                                            : t('pdf.movement.surcharge'),
                                             330, myY,
                                             { width: 70, lineBreak: false });
 
@@ -4001,7 +4161,7 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                                         .text(
                                             `${isIn ? '-' : '+'} ` +
                                             this.pdfMoney(
-                                                CurrencyCode, mov.Amount),
+                                                CurrencyCode, mov.Amount, Locale),
                                             44 + lw - 140, myY - 1,
                                             {
                                                 width: 124,
@@ -4022,6 +4182,8 @@ export class PersonServiceImplementation extends BaseServiceImplementation<Perso
                     }
 
                 }
+            ,
+            Locale
             );
 
         } catch (error) {
