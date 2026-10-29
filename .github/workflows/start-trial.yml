@@ -3,7 +3,9 @@ name: Start BTP trial
 on:
   schedule:
     - cron: '13 21-23 * * *'
+      timezone: 'America/Fortaleza'
     - cron: '13 0-4 * * *'
+      timezone: 'America/Fortaleza'
   workflow_dispatch:
 
 concurrency:
